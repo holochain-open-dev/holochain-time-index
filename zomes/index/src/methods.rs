@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, DurationRound, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk3::{
     hash_path::{anchor::Anchor, path::Component},
     prelude::*,
@@ -153,8 +153,8 @@ impl TimeChunk {
 
     /// Get all chunks that exist for some time period between from -> until
     pub fn get_chunks_for_time_span(
-        from: DateTime<Utc>,
-        until: DateTime<Utc>,
+        _from: DateTime<Utc>,
+        _until: DateTime<Utc>,
     ) -> HdkResult<Vec<EntryHash>> {
         //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
         //If it is lower then no results will ever be returned
@@ -163,7 +163,7 @@ impl TimeChunk {
         Ok(vec![])
     }
 
-    pub fn add_link(&self, target: EntryHash) -> HdkResult<()> {
+    pub fn add_link(&self, _target: EntryHash) -> HdkResult<()> {
         //TODO
         //Read how many links an agent already has on a given chunk
         //If under DIRECT_CHUNK_LINK_LIMIT then make direct link
@@ -171,7 +171,7 @@ impl TimeChunk {
         Ok(())
     }
 
-    pub fn get_links(&self, limit: u32) -> HdkResult<Vec<EntryHash>> {
+    pub fn get_links(&self, _limit: u32) -> HdkResult<Vec<EntryHash>> {
         //TODO
         //Read for direct links on chunk as well as traverse into any linked list on a chunk to find
         //any other linked addresses

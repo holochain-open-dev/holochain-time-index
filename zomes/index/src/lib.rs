@@ -118,6 +118,11 @@ fn get_latest_chunk(_: ()) -> ExternResult<TimeChunk> {
     Ok(chunk)
 }
 
+#[hdk_extern]
+fn get_genesis_chunk(_: ()) -> ExternResult<OptionTimeChunk> {
+    Ok(OptionTimeChunk(methods::get_genesis_chunk()?))
+}
+
 // Configuration
 // TODO this needs to be derived from DNA's properties
 

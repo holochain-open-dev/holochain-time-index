@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, DurationRound, NaiveDateTime, Utc};
 use hdk3::{
     hash_path::{anchor::Anchor, path::Component},
     prelude::*,
@@ -245,6 +245,27 @@ pub fn get_genesis_chunk() -> HdkResult<Option<TimeChunk>> {
         None => None,
     };
     Ok(time_chunk)
+}
+
+/// Creates the genesis chunk; this should only be used for testing
+pub fn create_genesis_chunk() -> HdkResult<()> {
+    let genesis_anchor = Anchor {
+        anchor_type: String::from("genesis"),
+        anchor_text: None,
+    };
+    create_entry(&genesis_anchor)?;
+    let genesis_hash = hash_entry(&genesis_anchor)?;
+    
+    let now = sys_time()?;
+    let until = now + *MAX_CHUNK_INTERVAL;
+    let genesis_chunk = TimeChunk {
+        from: now,
+        until: until
+    };
+    create_entry(&genesis_chunk)?;
+
+    create_link(genesis_hash, genesis_chunk.hash()?, LinkTag::new("genesis"))?;
+    Ok(())
 }
 
 // /// Will take current time and try to find a chunk that fits; if no chunk is found then it will create a chunk that fits

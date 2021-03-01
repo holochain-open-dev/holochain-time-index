@@ -80,6 +80,8 @@ fn entry_defs(_: ()) -> ExternResult<EntryDefsCallbackResult> {
 
 #[hdk_extern]
 fn init(_: ()) -> ExternResult<InitCallbackResult> {
+    //NOTE: Only for testing
+    methods::create_genesis_chunk()?;
     Ok(InitCallbackResult::Pass)
 }
 

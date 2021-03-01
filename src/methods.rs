@@ -4,10 +4,10 @@ use hdk3::{
     prelude::*,
 };
 
-use crate::utils::{get_time_path, add_time_index_to_path};
+use crate::utils::{add_time_index_to_path, find_newest_time_path, get_time_path};
 use crate::{
-    DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, YearIndex,
-    MAX_CHUNK_INTERVAL, TimeIndex
+    DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, TimeIndex, YearIndex,
+    MAX_CHUNK_INTERVAL,
 };
 
 impl TimeChunk {
@@ -83,8 +83,8 @@ impl TimeChunk {
         }
     }
 
-    /// Get latest chunk using sys_time as source for latest time
-    pub fn get_latest_chunk() -> HdkResult<Option<TimeChunk>> {
+    /// Get current chunk using sys_time as source for time
+    pub fn get_current_chunk() -> HdkResult<Option<TimeChunk>> {
         //Running with the asumption here that sys_time is always UTC
         let now = sys_time()?;
         let now = DateTime::<Utc>::from_utc(
@@ -92,7 +92,7 @@ impl TimeChunk {
             Utc,
         );
         //Create current time path
-        let mut time_path = vec![];
+        let mut time_path = vec![Component::from("time")];
         add_time_index_to_path::<YearIndex>(&mut time_path, &now, TimeIndex::Year)?;
         add_time_index_to_path::<MonthIndex>(&mut time_path, &now, TimeIndex::Month)?;
         add_time_index_to_path::<DayIndex>(&mut time_path, &now, TimeIndex::Day)?;
@@ -114,20 +114,42 @@ impl TimeChunk {
                 )?)),
                 None => Ok(None),
             },
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
-    // /// Tries to get chunk with current timestamp; if it cannot find a chunk then it will keep going back until it finds one
-    // /// Max depth decides how far back we will look to get a chunk. Note max depth travels across time types.
-    // pub fn get_latest_chunk_recursive(max_depth: u32) -> HdkResult<TimeChunk> {
-    //     //TODO
-    //     //First try to get chunk on current time; if None then
-    //     //Move back back one time index; where the time index to move back by is the smallest value we index by 
-    //     //as denoted by TIME_INDEX_DEPTH
-    //     //This has to happen until IndexType has reached lowest value; at which point it will decrement the index value above
-    //     //the current in tree heirachy
-    // }
+    /// Traverses time tree following latest time links until it finds the latest chunk
+    pub fn get_latest_chunk() -> HdkResult<TimeChunk> {
+        let time_path = Path::from(vec![Component::from("time")]);
+
+        let time_path = find_newest_time_path::<YearIndex>(time_path, TimeIndex::Year)?;
+        let time_path = find_newest_time_path::<MonthIndex>(time_path, TimeIndex::Month)?;
+        let time_path = find_newest_time_path::<DayIndex>(time_path, TimeIndex::Day)?;
+        let time_path = find_newest_time_path::<HourIndex>(time_path, TimeIndex::Hour)?;
+        let time_path = find_newest_time_path::<MinuteIndex>(time_path, TimeIndex::Minute)?;
+
+        let chunks = get_links(time_path.hash()?, Some(LinkTag::new("chunk")))?;
+        let mut latest_chunk = chunks.into_inner();
+        latest_chunk.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+
+        match latest_chunk.pop() {
+            Some(link) => {
+                match get(link.target, GetOptions::content())? {
+                    Some(chunk) => Ok(chunk.entry().to_app_option()?.ok_or(HdkError::Wasm(
+                        WasmError::Zome(String::from(
+                            "Could not deserialize link target into TimeChunk",
+                        )),
+                    ))?),
+                    None => Err(HdkError::Wasm(WasmError::Zome(String::from(
+                        "Could not deserialize link target into TimeChunk",
+                    )))),
+                }
+            }
+            None => Err(HdkError::Wasm(WasmError::Zome(String::from(
+                "Expected a chunk on time path",
+            )))),
+        }
+    }
 
     /// Get all chunks that exist for some time period between from -> until
     pub fn get_chunks_for_time_span(
@@ -149,7 +171,7 @@ impl TimeChunk {
         Ok(())
     }
 
-    pub fn get_links(&self, limit: u32) -> HdkResult<Vec<EntryHash>>{
+    pub fn get_links(&self, limit: u32) -> HdkResult<Vec<EntryHash>> {
         //TODO
         //Read for direct links on chunk as well as traverse into any linked list on a chunk to find
         //any other linked addresses
@@ -174,9 +196,9 @@ impl TimeChunk {
             ))));
         };
         //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-        let genesis = get_genesis_chunk()?.ok_or(HdkError::Wasm(WasmError::Zome(
-            String::from("Time chunk cannot be created until gensis chunk has been created"),
-        )))?;
+        let genesis = get_genesis_chunk()?.ok_or(HdkError::Wasm(WasmError::Zome(String::from(
+            "Time chunk cannot be created until gensis chunk has been created",
+        ))))?;
         if (self.from - genesis.from).as_millis() % MAX_CHUNK_INTERVAL.as_millis() != 0 {
             return Err(HdkError::Wasm(WasmError::Zome(String::from(
                 "Time chunk does not follow chunk interval ordering since genesis",
@@ -228,7 +250,7 @@ pub fn get_genesis_chunk() -> HdkResult<Option<TimeChunk>> {
 // /// Will take current time and try to find a chunk that fits; if no chunk is found then it will create a chunk that fits
 // pub fn get_valid_chunk() -> HdkResult<TimeChunk> {
 //     //TODO:
-//     //determine how many hops from genesis until value until we would get a chunk where the 
+//     //determine how many hops from genesis until value until we would get a chunk where the
 //     //current time would fit inside the from & until of chunk. Try to get this chunk
 //     //if it does not exist then create it and return other wise just return retrieved chunk
 //     Ok(TimeChunk)

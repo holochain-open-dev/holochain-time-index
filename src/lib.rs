@@ -29,12 +29,12 @@ pub struct TimeChunk {
 
 #[hdk_entry(id = "year_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone)]
-pub struct YearIndex(i32);
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct YearIndex(u32);
 #[hdk_entry(id = "month_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
 #[derive(Debug, Clone)]
-pub struct MonthIndex(i32);
+pub struct MonthIndex(u32);
 #[hdk_entry(id = "day_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
 #[derive(Debug, Clone)]
@@ -81,6 +81,39 @@ fn entry_defs(_: ()) -> ExternResult<EntryDefsCallbackResult> {
 #[hdk_extern]
 fn init(_: ()) -> ExternResult<InitCallbackResult> {
     Ok(InitCallbackResult::Pass)
+}
+
+#[hdk_extern]
+fn create_chunk(chunk: TimeChunk) -> ExternResult<TimeChunk> {
+    chunk.create_chunk(false)?;
+    Ok(chunk)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct GetPreviousChunkRequest {
+    pub chunk: TimeChunk,
+    pub hops: u32
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct OptionTimeChunk(Option<TimeChunk>);
+
+#[hdk_extern]
+fn get_previous_chunk(data: GetPreviousChunkRequest) -> ExternResult<OptionTimeChunk> {
+    let chunk = data.chunk.get_previous_chunk(data.hops)?;
+    Ok(OptionTimeChunk(chunk))
+}
+
+#[hdk_extern]
+fn get_current_chunk(_: ()) -> ExternResult<OptionTimeChunk> {
+    let chunk = TimeChunk::get_current_chunk()?;
+    Ok(OptionTimeChunk(chunk))
+}
+
+#[hdk_extern]
+fn get_latest_chunk(_: ()) -> ExternResult<TimeChunk> {
+    let chunk = TimeChunk::get_latest_chunk()?;
+    Ok(chunk)
 }
 
 // Configuration

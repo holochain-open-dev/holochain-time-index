@@ -1,17 +1,17 @@
 use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
-use hdk3::{hash_path::path::Component, prelude::*};
+use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::{
     DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex, YearIndex,
     TIME_INDEX_DEPTH,
 };
 
-pub fn get_path_links_on_path(path: &Path) -> HdkResult<Vec<Path>> {
+pub fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
     let links: Vec<Path> = get_links(path.hash()?, None)?
         .into_inner()
         .into_iter()
         .map(|link| get(link.target, GetOptions::content()))
-        .collect::<HdkResult<Vec<Option<Element>>>>()?
+        .collect::<ExternResult<Vec<Option<Element>>>>()?
         .into_iter()
         .filter(|link| link.is_none())
         .map(|val| {
@@ -19,12 +19,12 @@ pub fn get_path_links_on_path(path: &Path) -> HdkResult<Vec<Path>> {
             let val: Path = val
                 .entry()
                 .to_app_option()?
-                .ok_or(HdkError::Wasm(WasmError::Zome(String::from(
+                .ok_or(WasmError::Host(String::from(
                     "Could not deserialize link target into time Path",
-                ))))?;
+                )))?;
             Ok(val)
         })
-        .collect::<HdkResult<Vec<Path>>>()?;
+        .collect::<ExternResult<Vec<Path>>>()?;
     Ok(links)
 }
 
@@ -35,7 +35,7 @@ pub fn find_newest_time_path<
 >(
     path: Path,
     time_index: TimeIndex,
-) -> HdkResult<Path> {
+) -> ExternResult<Path> {
     match time_index {
         TimeIndex::Year => (),
         TimeIndex::Month => (),
@@ -65,10 +65,10 @@ pub fn find_newest_time_path<
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
     let mut links = get_path_links_on_path(&path)?;
     if links.len() == 0 {
-        return Err(HdkError::Wasm(WasmError::Zome(format!(
+        return Err(WasmError::Host(format!(
             "Could not find any time paths for path: {:?}",
             path
-        ))));
+        )));
     };
     links.sort_by(|a, b| {
         let a_val: Vec<Component> = a.to_owned().into();
@@ -95,7 +95,7 @@ pub fn add_time_index_to_path<
     time_path: &mut Vec<Component>,
     from_timestamp: &DateTime<Utc>,
     time_index: TimeIndex,
-) -> HdkResult<()> {
+) -> ExternResult<()> {
     let from_time = match time_index {
         TimeIndex::Year => from_timestamp.year() as u32,
         TimeIndex::Month => from_timestamp.month(),
@@ -128,7 +128,7 @@ pub fn add_time_index_to_path<
     Ok(())
 }
 
-pub fn get_time_path(from: std::time::Duration) -> HdkResult<Vec<Component>> {
+pub fn get_time_path(from: std::time::Duration) -> ExternResult<Vec<Component>> {
     //Create timestamp "tree"; i.e 2020 -> 02 -> 16 -> chunk
     //Create from timestamp
     let from_timestamp = DateTime::<Utc>::from_utc(

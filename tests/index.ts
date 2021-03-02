@@ -14,13 +14,9 @@ const network = {
         proxy_accept_config: ProxyAcceptConfig.AcceptAll
       }
     }],
-    bootstrap_service: "https://bootstrap.holo.host"
+    bootstrap_service: "https://bootstrap-staging.holo.host"
 };
-const conductorConfig = Config.gen({network});
-//const conductorConfig = Config.gen();
-
-// Construct proper paths for your DNAs
-const chunking = path.join(__dirname, '../time-chunking.dna.gz')
+const conductorConfig = Config.gen();
 
 // create an InstallAgentsHapps array with your DNAs to tell tryorama what
 // to install into the conductor.
@@ -28,7 +24,7 @@ const installation: InstallAgentsHapps = [
   // agent 0
   [
     // happ 0
-    [chunking]
+    [path.join("../time-chunking.dna.gz"),]
   ]
 ]
 
@@ -39,7 +35,7 @@ const installation: InstallAgentsHapps = [
 // * scenario middleware, including integration with other test harnesses
 const orchestrator = new Orchestrator()
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(() => resolve(), ms));
+//const sleep = (ms) => new Promise((resolve) => setTimeout(() => resolve(), ms));
 
 orchestrator.registerScenario("create and get simple chunked link", async (s, t) => {
   // Declare two players using the previously specified config, nicknaming them "alice" and "bob"
@@ -47,18 +43,20 @@ orchestrator.registerScenario("create and get simple chunked link", async (s, t)
   // be used to spin up the conductor processes which are returned in a matching array.
   const [alice, bob] = await s.players([conductorConfig, conductorConfig])
 
+  console.log("Init alice happ");
   // install your happs into the conductors and destructuring the returned happ data using the same
   // array structure as you created in your installation array.
   const [
     [alice_happ],
   ] = await alice.installAgentsHapps(installation)
-  const [
-    [bob_sc_happ],
-  ] = await bob.installAgentsHapps(installation)
+  // const [
+  //   [bob_sc_happ],
+  // ] = await bob.installAgentsHapps(installation)
 
+  console.log("Agents init'd\n\n\n\n");
   //Create communication
-  let source = await alice_happ.cells[0].call("time_chunking", "get_genesis_chunk", {})
-  console.log("Got source", source);
+  //let source = await alice_happ.cells[0].call("time_chunking", "get_genesis_chunk", null)
+  //console.log("Got source", source);
 })
 
 // Run all registered scenarios as a final step, and gather the report,

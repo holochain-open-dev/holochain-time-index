@@ -12,8 +12,8 @@ extern crate lazy_static;
 
 use std::time::Duration;
 
-use hdk3::hash_path::anchor::Anchor;
-use hdk3::prelude::*;
+use hdk::hash_path::anchor::Anchor;
+use hdk::prelude::*;
 
 mod impls;
 mod methods;
@@ -21,7 +21,7 @@ mod utils;
 
 #[hdk_entry(id = "time_chunk", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TimeChunk {
     pub from: std::time::Duration,
     pub until: std::time::Duration,
@@ -29,27 +29,27 @@ pub struct TimeChunk {
 
 #[hdk_entry(id = "year_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct YearIndex(u32);
 #[hdk_entry(id = "month_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MonthIndex(u32);
 #[hdk_entry(id = "day_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DayIndex(u32);
 #[hdk_entry(id = "hour_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct HourIndex(u32);
 #[hdk_entry(id = "minute_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MinuteIndex(u32);
 #[hdk_entry(id = "second_index", visibility = "public")]
 #[serde(rename_all = "camelCase")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SecondIndex(u32);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -62,27 +62,29 @@ pub enum TimeIndex {
     Second,
 }
 
-#[hdk_extern]
-fn entry_defs(_: ()) -> ExternResult<EntryDefsCallbackResult> {
-    Ok(vec![
-        YearIndex::entry_def(),
-        MonthIndex::entry_def(),
-        DayIndex::entry_def(),
-        HourIndex::entry_def(),
-        MinuteIndex::entry_def(),
-        SecondIndex::entry_def(),
-        Anchor::entry_def(),
-    ]
-    .into())
-}
+entry_defs![
+    YearIndex::entry_def(),
+    MonthIndex::entry_def(),
+    DayIndex::entry_def(),
+    HourIndex::entry_def(),
+    MinuteIndex::entry_def(),
+    SecondIndex::entry_def(),
+    Anchor::entry_def()
+];
 
 // Extern zome functions
 
 #[hdk_extern]
 fn init(_: ()) -> ExternResult<InitCallbackResult> {
+    debug!("Init agent zome fn\n\n\n\n\n");
     //NOTE: Only for testing
     methods::create_genesis_chunk()?;
     Ok(InitCallbackResult::Pass)
+}
+
+#[hdk_extern]
+fn validate(_data: ValidateData) -> ExternResult<ValidateCallbackResult> {
+    Ok(ValidateCallbackResult::Valid)
 }
 
 #[hdk_extern]
@@ -120,6 +122,7 @@ fn get_latest_chunk(_: ()) -> ExternResult<TimeChunk> {
 
 #[hdk_extern]
 fn get_genesis_chunk(_: ()) -> ExternResult<OptionTimeChunk> {
+    debug!("Getting genesis chunk");
     Ok(OptionTimeChunk(methods::get_genesis_chunk()?))
 }
 

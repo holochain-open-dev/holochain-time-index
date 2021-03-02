@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use hdk3::{
+use hdk::{
     hash_path::{anchor::Anchor, path::Component},
     prelude::*,
 };
@@ -12,27 +12,27 @@ use crate::{
 
 impl TimeChunk {
     /// Create a new chunk & link to time index
-    pub fn create_chunk(&self, is_genesis: bool) -> HdkResult<()> {
+    pub fn create_chunk(&self, is_genesis: bool) -> ExternResult<()> {
         //These validations are to help zome callers; but should also be present in validation rules
         if self.from > sys_time()? {
-            return Err(HdkError::Wasm(WasmError::Zome(String::from(
+            return Err(WasmError::Host(String::from(
                 "Time chunk cannot start in the future",
-            ))));
+            )));
         };
         if self.until - self.from != *MAX_CHUNK_INTERVAL {
-            return Err(HdkError::Wasm(WasmError::Zome(String::from(
+            return Err(WasmError::Host(String::from(
                 "Time chunk should use period equal to max interval set by DNA",
-            ))));
+            )));
         };
         if !is_genesis {
             //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-            let genesis = get_genesis_chunk()?.ok_or(HdkError::Wasm(WasmError::Zome(
+            let genesis = get_genesis_chunk()?.ok_or(WasmError::Host(
                 String::from("Time chunk cannot be created until gensis chunk has been created"),
-            )))?;
+            ))?;
             if (self.from - genesis.from).as_millis() % MAX_CHUNK_INTERVAL.as_millis() != 0 {
-                return Err(HdkError::Wasm(WasmError::Zome(String::from(
+                return Err(WasmError::Host(String::from(
                     "Time chunk does not follow chunk interval ordering since genesis",
-                ))));
+                )));
             };
         };
 
@@ -63,28 +63,28 @@ impl TimeChunk {
     }
 
     /// Return the hash of the entry
-    pub fn hash(&self) -> HdkResult<EntryHash> {
+    pub fn hash(&self) -> ExternResult<EntryHash> {
         hash_entry(self)
     }
 
     /// Reads current chunk and moves back N step intervals and tries to get that chunk
-    pub fn get_previous_chunk(&self, back_steps: u32) -> HdkResult<Option<TimeChunk>> {
+    pub fn get_previous_chunk(&self, back_steps: u32) -> ExternResult<Option<TimeChunk>> {
         let last_chunk = TimeChunk {
             from: self.from - (*MAX_CHUNK_INTERVAL * back_steps),
             until: self.until - (*MAX_CHUNK_INTERVAL * back_steps),
         };
         match get(last_chunk.hash()?, GetOptions::content())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                HdkError::Wasm(WasmError::Zome(String::from(
+                WasmError::Host(String::from(
                     "Could not deserialize link target into TimeChunk",
-                ))),
-            )?)),
+                )))?,
+            )),
             None => Ok(None),
         }
     }
 
     /// Get current chunk using sys_time as source for time
-    pub fn get_current_chunk() -> HdkResult<Option<TimeChunk>> {
+    pub fn get_current_chunk() -> ExternResult<Option<TimeChunk>> {
         //Running with the asumption here that sys_time is always UTC
         let now = sys_time()?;
         let now = DateTime::<Utc>::from_utc(
@@ -108,10 +108,10 @@ impl TimeChunk {
         match latest_chunk.pop() {
             Some(link) => match get(link.target, GetOptions::content())? {
                 Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                    HdkError::Wasm(WasmError::Zome(String::from(
+                    WasmError::Host(String::from(
                         "Could not deserialize link target into TimeChunk",
-                    ))),
-                )?)),
+                    )))?,
+                )),
                 None => Ok(None),
             },
             None => Ok(None),
@@ -119,7 +119,7 @@ impl TimeChunk {
     }
 
     /// Traverses time tree following latest time links until it finds the latest chunk
-    pub fn get_latest_chunk() -> HdkResult<TimeChunk> {
+    pub fn get_latest_chunk() -> ExternResult<TimeChunk> {
         let time_path = Path::from(vec![Component::from("time")]);
 
         let time_path = find_newest_time_path::<YearIndex>(time_path, TimeIndex::Year)?;
@@ -135,19 +135,19 @@ impl TimeChunk {
         match latest_chunk.pop() {
             Some(link) => {
                 match get(link.target, GetOptions::content())? {
-                    Some(chunk) => Ok(chunk.entry().to_app_option()?.ok_or(HdkError::Wasm(
-                        WasmError::Zome(String::from(
+                    Some(chunk) => Ok(chunk.entry().to_app_option()?.ok_or(
+                        WasmError::Host(String::from(
                             "Could not deserialize link target into TimeChunk",
-                        )),
-                    ))?),
-                    None => Err(HdkError::Wasm(WasmError::Zome(String::from(
+                        )))?,
+                    ),
+                    None => Err(WasmError::Host(String::from(
                         "Could not deserialize link target into TimeChunk",
-                    )))),
+                    ))),
                 }
             }
-            None => Err(HdkError::Wasm(WasmError::Zome(String::from(
+            None => Err(WasmError::Host(String::from(
                 "Expected a chunk on time path",
-            )))),
+            ))),
         }
     }
 
@@ -155,7 +155,7 @@ impl TimeChunk {
     pub fn get_chunks_for_time_span(
         _from: DateTime<Utc>,
         _until: DateTime<Utc>,
-    ) -> HdkResult<Vec<EntryHash>> {
+    ) -> ExternResult<Vec<EntryHash>> {
         //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
         //If it is lower then no results will ever be returned
         //Next is to deduce how tree should be traversed and what time index level/path(s)
@@ -163,7 +163,7 @@ impl TimeChunk {
         Ok(vec![])
     }
 
-    pub fn add_link(&self, _target: EntryHash) -> HdkResult<()> {
+    pub fn add_link(&self, _target: EntryHash) -> ExternResult<()> {
         //TODO
         //Read how many links an agent already has on a given chunk
         //If under DIRECT_CHUNK_LINK_LIMIT then make direct link
@@ -171,43 +171,43 @@ impl TimeChunk {
         Ok(())
     }
 
-    pub fn get_links(&self, _limit: u32) -> HdkResult<Vec<EntryHash>> {
+    pub fn get_links(&self, _limit: u32) -> ExternResult<Vec<EntryHash>> {
         //TODO
         //Read for direct links on chunk as well as traverse into any linked list on a chunk to find
         //any other linked addresses
         Ok(vec![])
     }
 
-    pub fn validate_chunk(&self) -> HdkResult<()> {
+    pub fn validate_chunk(&self) -> ExternResult<()> {
         //TODO: incorrect error type being used here
         if self.from > sys_time()? {
-            return Err(HdkError::Wasm(WasmError::Zome(String::from(
+            return Err(WasmError::Host(String::from(
                 "Time chunk cannot start in the future",
-            ))));
+            )));
         };
         if self.until - self.from != *MAX_CHUNK_INTERVAL {
-            return Err(HdkError::Wasm(WasmError::Zome(String::from(
+            return Err(WasmError::Host(String::from(
                 "Time chunk should use period equal to max interval set by DNA",
-            ))));
+            )));
         };
         if self.until - self.from != *MAX_CHUNK_INTERVAL {
-            return Err(HdkError::Wasm(WasmError::Zome(String::from(
+            return Err(WasmError::Host(String::from(
                 "Time chunk should use period equal to max interval set by DNA",
-            ))));
+            )));
         };
         //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-        let genesis = get_genesis_chunk()?.ok_or(HdkError::Wasm(WasmError::Zome(String::from(
+        let genesis = get_genesis_chunk()?.ok_or(WasmError::Host(String::from(
             "Time chunk cannot be created until gensis chunk has been created",
-        ))))?;
+        )))?;
         if (self.from - genesis.from).as_millis() % MAX_CHUNK_INTERVAL.as_millis() != 0 {
-            return Err(HdkError::Wasm(WasmError::Zome(String::from(
+            return Err(WasmError::Host(String::from(
                 "Time chunk does not follow chunk interval ordering since genesis",
-            ))));
+            )));
         };
         Ok(())
     }
 
-    // pub fn validate_chunk_link(&self, link: LinkData) -> HdkResult<()> {
+    // pub fn validate_chunk_link(&self, link: LinkData) -> ExternResult<()> {
     //     //Interesting interplay developing here
     //     //The complexity to make one link increases with number of links on that chunk
     //     //Thus you could say its worth making chunks as small as possible
@@ -223,22 +223,24 @@ impl TimeChunk {
 }
 
 /// Tries to find the first chunk committed; i.e the "genesis chunk"
-pub fn get_genesis_chunk() -> HdkResult<Option<TimeChunk>> {
+pub fn get_genesis_chunk() -> ExternResult<Option<TimeChunk>> {
+    debug!("Getting genesis chunk");
     let genesis_anchor = Anchor {
         anchor_type: String::from("genesis"),
         anchor_text: None,
     };
     let genesis_hash = hash_entry(&genesis_anchor)?;
     let links = get_links(genesis_hash, Some(LinkTag::new("genesis")))?;
+    debug!("Got links: {:#?}", links);
     let time_chunk = match links.into_inner().first() {
         Some(link) => {
             let element = get(link.target.to_owned(), GetOptions::default())?;
             match element {
-                Some(element) => Some(element.entry().to_app_option()?.ok_or(HdkError::Wasm(
-                    WasmError::Zome(String::from(
+                Some(element) => Some(element.entry().to_app_option()?.ok_or(
+                    WasmError::Host(String::from(
                         "Could not deserialize link target into TimeChunk",
                     )),
-                ))?),
+                )?),
                 None => None,
             }
         }
@@ -248,28 +250,32 @@ pub fn get_genesis_chunk() -> HdkResult<Option<TimeChunk>> {
 }
 
 /// Creates the genesis chunk; this should only be used for testing
-pub fn create_genesis_chunk() -> HdkResult<()> {
+pub fn create_genesis_chunk() -> ExternResult<()> {
     let genesis_anchor = Anchor {
         anchor_type: String::from("genesis"),
         anchor_text: None,
     };
     create_entry(&genesis_anchor)?;
     let genesis_hash = hash_entry(&genesis_anchor)?;
+    debug!("CREATED ANCHOR\n\n\n\n\n");
     
     let now = sys_time()?;
+    debug!("sys time: {:#?}\n\n\n\n\n", now);
     let until = now + *MAX_CHUNK_INTERVAL;
     let genesis_chunk = TimeChunk {
         from: now,
         until: until
     };
-    create_entry(&genesis_chunk)?;
+    let entry = create_entry(&genesis_chunk);
+    debug!("created chunk: {:?}\n\n\n\n\n\n\n\n\n\n\n\n", entry);
+    debug!("Created chunk\n\n\n\n\n");
 
     create_link(genesis_hash, genesis_chunk.hash()?, LinkTag::new("genesis"))?;
     Ok(())
 }
 
 // /// Will take current time and try to find a chunk that fits; if no chunk is found then it will create a chunk that fits
-// pub fn get_valid_chunk() -> HdkResult<TimeChunk> {
+// pub fn get_valid_chunk() -> ExternResult<TimeChunk> {
 //     //TODO:
 //     //determine how many hops from genesis until value until we would get a chunk where the
 //     //current time would fit inside the from & until of chunk. Try to get this chunk

@@ -3,16 +3,15 @@
 //! all links from the given authored entry. As a result if a given entry becomes very popular then it can be left up to one or a few nodes
 //! to handle all traffic flowing through this part of the DHT.
 //!
-//!
 //! DNA functioning
 //!
 //! The main component that allows the mitigation of DHT hotspots is 1) the time delimited chunks and 2) the agent focused validation that occurs on each chunk. 
-//! For any given chunk an agent cannot make more than DIRECT_CHUNK_LINK_LIMIT direct links on a given chunk. Once this limit has been met, subsequent 
+//! For any given chunk an agent cannot make more than [`DIRECT_CHUNK_LINK_LIMIT`] direct links on a given chunk. Once this limit has been met, subsequent 
 //! links must be linked together in a linked list shape. Here the target entry of the last direct link they created is the source entry of the linked list. 
-//! An agent can make links like this until their total links reaches the ENFORCE_SPAM_LIMIT limit at which point no further links are allowed. 
-//! The first limit is a measure to protect DHT hotspots in a busy DHT with a high MAX_CHUNK_INTERVAL & the second limit is supposed to block clear/obvious spam.
+//! An agent can make links like this until their total links reaches the [`ENFORCE_SPAM_LIMIT`] limit at which point no further links are allowed. 
+//! The first limit is a measure to protect DHT hotspots in a busy DHT with a high [`MAX_CHUNK_INTERVAL`] & the second limit is supposed to block clear/obvious spam.
 //! 
-//! This DNA's variables is expected to be static. That means its expected that the: DIRECT_CHUNK_LINK_LIMIT, ENFORCE_SPAM_LIMIT & MAX_CHUNK_INTERVAL will 
+//! This DNA's variables is expected to be static. That means its expected that the: [`DIRECT_CHUNK_LINK_LIMIT`], [`ENFORCE_SPAM_LIMIT`] & [`MAX_CHUNK_INTERVAL`] will 
 //! stay the same throughout the lifetime of the DHT. This is done to make validation possible in situations where DHT could occur. 
 //! If limits are able to change; we have no way to reliably know if an agent is operating on old limits by consequence of being out of touch 
 //! with latest DHT state or if the agent is malicious and pretending they do not see the new limits.

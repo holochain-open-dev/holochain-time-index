@@ -1,5 +1,5 @@
 use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
-use hdk::{hash_path::path::Component, prelude::*};
+use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::{
     DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex, YearIndex,
@@ -19,7 +19,7 @@ pub fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
             let val: Path = val
                 .entry()
                 .to_app_option()?
-                .ok_or(WasmError::Host(String::from(
+                .ok_or(WasmError::Zome(String::from(
                     "Could not deserialize link target into time Path",
                 )))?;
             Ok(val)
@@ -65,7 +65,7 @@ pub fn find_newest_time_path<
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
     let mut links = get_path_links_on_path(&path)?;
     if links.len() == 0 {
-        return Err(WasmError::Host(format!(
+        return Err(WasmError::Zome(format!(
             "Could not find any time paths for path: {:?}",
             path
         )));

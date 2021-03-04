@@ -51,8 +51,8 @@ extern crate lazy_static;
 
 use std::time::Duration;
 
-use hdk::hash_path::anchor::Anchor;
-use hdk::prelude::*;
+use hdk3::hash_path::anchor::Anchor;
+use hdk3::prelude::*;
 
 mod impls;
 mod methods;
@@ -102,6 +102,7 @@ pub enum TimeIndex {
 }
 
 entry_defs![
+    TimeChunk::entry_def(),
     YearIndex::entry_def(),
     MonthIndex::entry_def(),
     DayIndex::entry_def(),

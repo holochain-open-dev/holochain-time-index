@@ -62,8 +62,8 @@ mod utils;
 #[serde(rename_all = "camelCase")]
 #[derive(Clone)]
 pub struct TimeChunk {
-    pub from: std::time::Duration,
-    pub until: std::time::Duration,
+    pub from: Duration,
+    pub until: Duration,
 }
 
 #[hdk_entry(id = "year_index", visibility = "public")]
@@ -162,8 +162,12 @@ fn get_latest_chunk(_: ()) -> ExternResult<TimeChunk> {
 
 #[hdk_extern]
 fn get_genesis_chunk(_: ()) -> ExternResult<OptionTimeChunk> {
-    debug!("Getting genesis chunk");
     Ok(OptionTimeChunk(methods::get_genesis_chunk()?))
+}
+
+#[hdk_extern]
+fn get_max_chunk_interval(_: ()) -> ExternResult<Duration> {
+    Ok(methods::get_max_chunk_interval())
 }
 
 // Configuration
@@ -178,7 +182,7 @@ lazy_static! {
     //Point at which links are considered spam and linked list expressions are not allowed
     pub static ref ENFORCE_SPAM_LIMIT: usize = 50;
     //Max duration of given time chunk
-    pub static ref MAX_CHUNK_INTERVAL: std::time::Duration = std::time::Duration::new(300, 0);
+    pub static ref MAX_CHUNK_INTERVAL: Duration = Duration::new(300, 0);
     //Determine what depth of time index chunks should be hung from; this is the only piece that can be left as so
     //and not directly derived from DNA properties
     pub static ref TIME_INDEX_DEPTH: Vec<TimeIndex> = {

@@ -7,13 +7,13 @@ use crate::{
 };
 
 pub fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
-    let links: Vec<Path> = get_links(path.hash()?, None)?
+    let links = get_links(path.hash()?, None)?
         .into_inner()
         .into_iter()
         .map(|link| get(link.target, GetOptions::content()))
         .collect::<ExternResult<Vec<Option<Element>>>>()?
         .into_iter()
-        .filter(|link| link.is_none())
+        .filter(|link| link.is_some())
         .map(|val| {
             let val = val.unwrap();
             let val: Path = val
@@ -62,6 +62,7 @@ pub fn find_newest_time_path<
             }
         }
     };
+    debug!("Finding links on TimeIndex: {:#?}\n\n", time_index);
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
     let mut links = get_path_links_on_path(&path)?;
     if links.len() == 0 {

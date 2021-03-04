@@ -230,7 +230,6 @@ pub fn get_genesis_chunk() -> ExternResult<Option<TimeChunk>> {
     };
     let genesis_hash = hash_entry(&genesis_anchor)?;
     let links = get_links(genesis_hash, Some(LinkTag::new("genesis")))?;
-    debug!("Got links: {:#?}", links);
     let time_chunk = match links.into_inner().first() {
         Some(link) => {
             let element = get(link.target.to_owned(), GetOptions::default())?;
@@ -250,13 +249,6 @@ pub fn get_genesis_chunk() -> ExternResult<Option<TimeChunk>> {
 
 /// Creates the genesis chunk; this should only be used for testing
 pub fn create_genesis_chunk() -> ExternResult<()> {
-    let genesis_anchor = Anchor {
-        anchor_type: String::from("genesis"),
-        anchor_text: None,
-    };
-    create_entry(&genesis_anchor)?;
-    let genesis_hash = hash_entry(&genesis_anchor)?;
-    
     let now = sys_time()?;
     let until = now + *MAX_CHUNK_INTERVAL;
     
@@ -264,10 +256,12 @@ pub fn create_genesis_chunk() -> ExternResult<()> {
         from: now,
         until: until
     };
-    create_entry(&genesis_chunk)?;
-
-    create_link(genesis_hash, genesis_chunk.hash()?, LinkTag::new("genesis"))?;
+    genesis_chunk.create_chunk(true)?;
     Ok(())
+}
+
+pub fn get_max_chunk_interval() -> std::time::Duration {
+    *MAX_CHUNK_INTERVAL
 }
 
 // /// Will take current time and try to find a chunk that fits; if no chunk is found then it will create a chunk that fits

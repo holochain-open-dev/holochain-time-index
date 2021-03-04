@@ -14,7 +14,7 @@ const network = {
         proxy_accept_config: ProxyAcceptConfig.AcceptAll
       }
     }],
-    bootstrap_service: "https://bootstrap-staging.holo.host"
+    bootstrap_service: "https://bootstrap.holo.host"
 };
 const conductorConfig = Config.gen();
 
@@ -37,7 +37,7 @@ const orchestrator = new Orchestrator()
 
 //const sleep = (ms) => new Promise((resolve) => setTimeout(() => resolve(), ms));
 
-orchestrator.registerScenario("create and get simple chunked link", async (s, t) => {
+orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   // Declare two players using the previously specified config, nicknaming them "alice" and "bob"
   // note that the first argument to players is just an array conductor configs that that will
   // be used to spin up the conductor processes which are returned in a matching array.
@@ -52,11 +52,30 @@ orchestrator.registerScenario("create and get simple chunked link", async (s, t)
   // const [
   //   [bob_sc_happ],
   // ] = await bob.installAgentsHapps(installation)
+  console.log("Agents init'd\n");
 
-  console.log("Agents init'd\n\n\n\n");
-  //Create communication
-  let source = await alice_happ.cells[0].call("time_chunking", "get_genesis_chunk", null)
-  console.log("Got source", source);
+  //Get genesis chunk
+  let genesis = await alice_happ.cells[0].call("time_chunking", "get_genesis_chunk", null)
+  console.log("Got genesis chunk", genesis);
+  t.notEqual(genesis.from, undefined)
+
+  let current_chunk = await alice_happ.cells[0].call("time_chunking", "get_current_chunk", null);
+  t.deepEqual(genesis, current_chunk);
+
+  let search_current_chunk = await alice_happ.cells[0].call("time_chunking", "get_latest_chunk", null);
+  t.deepEqual(genesis, search_current_chunk);
+
+  let chunk_size = await alice_happ.cells[0].call("time_chunking", "get_max_chunk_interval", null);
+  t.notEqual(chunk_size, undefined);
+
+  //Create a fake next chunk to see if we can go back and get the genesis
+  let next_chunk = {
+    from: {secs: genesis.from.secs + chunk_size.secs, nanos: genesis.from.nanos + chunk_size.nanos },
+    until: {secs: genesis.until.secs + chunk_size.secs, nanos: genesis.until.nanos + chunk_size.nanos },
+  };
+  let get_previous_chunk = await alice_happ.cells[0].call("time_chunking", "get_previous_chunk", {chunk: next_chunk, hops: 1})
+  console.log("Got previous chunk", get_previous_chunk);
+  t.deepEqual(genesis, get_previous_chunk);
 })
 
 // Run all registered scenarios as a final step, and gather the report,

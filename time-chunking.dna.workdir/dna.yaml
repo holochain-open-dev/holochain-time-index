@@ -1,0 +1,8 @@
+---
+manifest_version: "1"
+name: Time-Chunking
+uuid: 00000000-0000-0000-0000-000000000000
+properties: ~
+zomes:
+  - name: time_chunking
+    bundled: ../target/wasm32-unknown-unknown/release/time_delimited_indexing.wasm

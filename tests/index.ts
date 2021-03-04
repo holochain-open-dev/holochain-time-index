@@ -55,8 +55,8 @@ orchestrator.registerScenario("create and get simple chunked link", async (s, t)
 
   console.log("Agents init'd\n\n\n\n");
   //Create communication
-  //let source = await alice_happ.cells[0].call("time_chunking", "get_genesis_chunk", null)
-  //console.log("Got source", source);
+  let source = await alice_happ.cells[0].call("time_chunking", "get_genesis_chunk", null)
+  console.log("Got source", source);
 })
 
 // Run all registered scenarios as a final step, and gather the report,

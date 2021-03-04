@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use hdk::{
+use hdk3::{
     hash_path::{anchor::Anchor, path::Component},
     prelude::*,
 };
@@ -15,22 +15,22 @@ impl TimeChunk {
     pub fn create_chunk(&self, is_genesis: bool) -> ExternResult<()> {
         //These validations are to help zome callers; but should also be present in validation rules
         if self.from > sys_time()? {
-            return Err(WasmError::Host(String::from(
+            return Err(WasmError::Zome(String::from(
                 "Time chunk cannot start in the future",
             )));
         };
         if self.until - self.from != *MAX_CHUNK_INTERVAL {
-            return Err(WasmError::Host(String::from(
+            return Err(WasmError::Zome(String::from(
                 "Time chunk should use period equal to max interval set by DNA",
             )));
         };
         if !is_genesis {
             //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-            let genesis = get_genesis_chunk()?.ok_or(WasmError::Host(
+            let genesis = get_genesis_chunk()?.ok_or(WasmError::Zome(
                 String::from("Time chunk cannot be created until gensis chunk has been created"),
             ))?;
             if (self.from - genesis.from).as_millis() % MAX_CHUNK_INTERVAL.as_millis() != 0 {
-                return Err(WasmError::Host(String::from(
+                return Err(WasmError::Zome(String::from(
                     "Time chunk does not follow chunk interval ordering since genesis",
                 )));
             };
@@ -75,7 +75,7 @@ impl TimeChunk {
         };
         match get(last_chunk.hash()?, GetOptions::content())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                WasmError::Host(String::from(
+                WasmError::Zome(String::from(
                     "Could not deserialize link target into TimeChunk",
                 )))?,
             )),
@@ -108,7 +108,7 @@ impl TimeChunk {
         match latest_chunk.pop() {
             Some(link) => match get(link.target, GetOptions::content())? {
                 Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                    WasmError::Host(String::from(
+                    WasmError::Zome(String::from(
                         "Could not deserialize link target into TimeChunk",
                     )))?,
                 )),
@@ -136,16 +136,15 @@ impl TimeChunk {
             Some(link) => {
                 match get(link.target, GetOptions::content())? {
                     Some(chunk) => Ok(chunk.entry().to_app_option()?.ok_or(
-                        WasmError::Host(String::from(
+                        WasmError::Zome(String::from(
                             "Could not deserialize link target into TimeChunk",
-                        )))?,
-                    ),
-                    None => Err(WasmError::Host(String::from(
+                     )))?),
+                    None => Err(WasmError::Zome(String::from(
                         "Could not deserialize link target into TimeChunk",
                     ))),
                 }
             }
-            None => Err(WasmError::Host(String::from(
+            None => Err(WasmError::Zome(String::from(
                 "Expected a chunk on time path",
             ))),
         }
@@ -181,26 +180,26 @@ impl TimeChunk {
     pub fn validate_chunk(&self) -> ExternResult<()> {
         //TODO: incorrect error type being used here
         if self.from > sys_time()? {
-            return Err(WasmError::Host(String::from(
+            return Err(WasmError::Zome(String::from(
                 "Time chunk cannot start in the future",
             )));
         };
         if self.until - self.from != *MAX_CHUNK_INTERVAL {
-            return Err(WasmError::Host(String::from(
+            return Err(WasmError::Zome(String::from(
                 "Time chunk should use period equal to max interval set by DNA",
             )));
         };
         if self.until - self.from != *MAX_CHUNK_INTERVAL {
-            return Err(WasmError::Host(String::from(
+            return Err(WasmError::Zome(String::from(
                 "Time chunk should use period equal to max interval set by DNA",
             )));
         };
         //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-        let genesis = get_genesis_chunk()?.ok_or(WasmError::Host(String::from(
+        let genesis = get_genesis_chunk()?.ok_or(WasmError::Zome(String::from(
             "Time chunk cannot be created until gensis chunk has been created",
         )))?;
         if (self.from - genesis.from).as_millis() % MAX_CHUNK_INTERVAL.as_millis() != 0 {
-            return Err(WasmError::Host(String::from(
+            return Err(WasmError::Zome(String::from(
                 "Time chunk does not follow chunk interval ordering since genesis",
             )));
         };
@@ -237,7 +236,7 @@ pub fn get_genesis_chunk() -> ExternResult<Option<TimeChunk>> {
             let element = get(link.target.to_owned(), GetOptions::default())?;
             match element {
                 Some(element) => Some(element.entry().to_app_option()?.ok_or(
-                    WasmError::Host(String::from(
+                    WasmError::Zome(String::from(
                         "Could not deserialize link target into TimeChunk",
                     )),
                 )?),
@@ -257,18 +256,15 @@ pub fn create_genesis_chunk() -> ExternResult<()> {
     };
     create_entry(&genesis_anchor)?;
     let genesis_hash = hash_entry(&genesis_anchor)?;
-    debug!("CREATED ANCHOR\n\n\n\n\n");
     
     let now = sys_time()?;
-    debug!("sys time: {:#?}\n\n\n\n\n", now);
     let until = now + *MAX_CHUNK_INTERVAL;
+    
     let genesis_chunk = TimeChunk {
         from: now,
         until: until
     };
-    let entry = create_entry(&genesis_chunk);
-    debug!("created chunk: {:?}\n\n\n\n\n\n\n\n\n\n\n\n", entry);
-    debug!("Created chunk\n\n\n\n\n");
+    create_entry(&genesis_chunk)?;
 
     create_link(genesis_hash, genesis_chunk.hash()?, LinkTag::new("genesis"))?;
     Ok(())

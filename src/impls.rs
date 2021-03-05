@@ -1,6 +1,6 @@
 //use chrono::{Duration, DurationRound};
 
-use crate::{DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, YearIndex};
+use crate::entries::{DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, YearIndex};
 
 impl From<u32> for YearIndex {
     fn from(data: u32) -> Self {

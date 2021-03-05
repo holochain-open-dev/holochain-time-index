@@ -1,8 +1,13 @@
+use std::time::Duration;
+
 use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
+use crate::entries::{
+    DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, TimeIndex, YearIndex,
+};
 use crate::{
-    DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex, YearIndex,
+    DIRECT_CHUNK_LINK_LIMIT, ENFORCE_SPAM_LIMIT, GENESIS_CHUNK, MAX_CHUNK_INTERVAL,
     TIME_INDEX_DEPTH,
 };
 
@@ -41,21 +46,24 @@ pub fn find_newest_time_path<
         TimeIndex::Month => (),
         TimeIndex::Day => (),
         TimeIndex::Hour => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
                 ()
             } else {
                 return Ok(path);
             }
         }
         TimeIndex::Minute => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
                 ()
             } else {
                 return Ok(path);
             }
         }
         TimeIndex::Second => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
                 ()
             } else {
                 return Ok(path);
@@ -102,21 +110,24 @@ pub fn add_time_index_to_path<
         TimeIndex::Month => from_timestamp.month(),
         TimeIndex::Day => from_timestamp.day(),
         TimeIndex::Hour => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
                 from_timestamp.hour()
             } else {
                 return Ok(());
             }
         }
         TimeIndex::Minute => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
                 from_timestamp.minute()
             } else {
                 return Ok(());
             }
         }
         TimeIndex::Second => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
                 from_timestamp.second()
             } else {
                 return Ok(());
@@ -145,4 +156,36 @@ pub fn get_time_path(from: std::time::Duration) -> ExternResult<Vec<Component>> 
     add_time_index_to_path::<SecondIndex>(&mut time_path, &from_timestamp, TimeIndex::Second)?;
 
     Ok(time_path)
+}
+
+pub(crate) fn unwrap_chunk_interval_lock() -> Duration {
+    *MAX_CHUNK_INTERVAL
+        .read()
+        .expect("Could not read from MAX_CHUNK_INTERVAL")
+}
+
+pub(crate) fn unwrap_time_index_depth() -> Vec<TimeIndex> {
+    TIME_INDEX_DEPTH
+        .read()
+        .expect("Could not read from TIME_INDEX_DEPTH")
+        .clone()
+}
+
+pub(crate) fn unwrap_direct_chunk_limit() -> usize {
+    *DIRECT_CHUNK_LINK_LIMIT
+        .read()
+        .expect("Could not read from DIRECT_CHUNK_LINK_LIMIT")
+}
+
+pub(crate) fn unwrap_spam_limit() -> usize {
+    *ENFORCE_SPAM_LIMIT
+        .read()
+        .expect("Could not read from ENFORCE_SPAM_LIMIT")
+}
+
+pub(crate) fn unwrap_genesis_chunk() -> TimeChunk {
+    GENESIS_CHUNK
+        .read()
+        .expect("Could not read from GENESIS_CHUNK")
+        .clone()
 }

@@ -69,7 +69,7 @@ mod traits;
 /// Trait to impl on entries that you want to add to time index
 pub use traits::EntryTimeIndex;
 
-use entries::TimeIndex;
+use entries::{TimeChunk, TimeIndex};
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
@@ -106,6 +106,12 @@ pub fn set_chunk_interval(interval: Duration) {
     MAX_CHUNK_INTERVAL
         .set(interval)
         .expect("Could not set MAX_CHUNK_INTERVAL");
+    let genesis_chunk = TimeChunk {
+        from: std::time::Duration::new(0, 0),
+        until: interval,
+    };
+    set_gensis_chunk(genesis_chunk);
+
     if interval < Duration::from_secs(1) {
         TIME_INDEX_DEPTH
             .set(vec![
@@ -146,7 +152,7 @@ pub fn set_chunk_limit(direct_chunk_limit: usize, spam_limit: usize) {
 //be derived from this
 /// Set the first chunk of the DHT. This is the chunk that all others will use as reference for ordering
 /// This can be called on your DNA init and should be sometime in the past
-pub fn set_gensis_chunk(chunk: entries::TimeChunk) {
+fn set_gensis_chunk(chunk: entries::TimeChunk) {
     GENESIS_CHUNK
         .set(chunk)
         .expect("Could not set GENESIS_CHUNK");

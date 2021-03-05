@@ -49,11 +49,15 @@
 #[macro_use]
 extern crate lazy_static;
 
+use chrono::{DateTime, Utc};
 use mut_static::MutStatic;
 use std::time::Duration;
 
+use hdk3::prelude::*;
+
 mod impls;
 mod utils;
+mod validation;
 
 /// Public methods exposed by lib
 pub mod methods;
@@ -61,8 +65,43 @@ pub mod methods;
 /// All holochain entries used by this crate
 pub mod entries;
 
+mod traits;
+/// Trait to impl on entries that you want to add to time index
+pub use traits::EntryTimeIndex;
+
 use entries::TimeIndex;
 
+/// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
+/// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
+pub fn get_addresses_since(
+    last_seen: DateTime<Utc>,
+    limit: Option<usize>,
+    link_tag: Option<LinkTag>,
+) -> ExternResult<Vec<EntryHash>> {
+    Ok(vec![])
+}
+
+/// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
+/// at the current time index which will cover as much time as the current system time - MAX_CHUNK_INTERVAL
+pub fn get_current_addresses(link_tag: Option<LinkTag>) -> ExternResult<Vec<EntryHash>> {
+    Ok(vec![])
+}
+
+//NOTE: here we will likely also want to return the chunk which the entries came from. Otherwise there is no way to know
+//what time frame these results are coming from
+/// Searches time index for most recent chunk and returns links from that chunk
+/// Guaranteed to return results if some index's have been made
+pub fn get_most_recent_addresses(link_tag: Option<LinkTag>) -> ExternResult<Vec<EntryHash>> {
+    Ok(vec![])
+}
+
+/// Index a given entry. Uses ['EntryTimeIndex::entry_time()'] to get time it should be indexed under.
+/// Will create link from time path to entry with link_tag passed into fn
+pub fn index<T: EntryTimeIndex>(data: T, link_tag: LinkTag) -> ExternResult<()> {
+    Ok(())
+}
+
+/// Set the interval which a chunk represents. This should be carefully selected based on link limits set and popularity of DHT
 pub fn set_chunk_interval(interval: Duration) {
     MAX_CHUNK_INTERVAL
         .set(interval)
@@ -91,6 +130,9 @@ pub fn set_chunk_interval(interval: Duration) {
     };
 }
 
+/// Set spam protection/DHT hotspot rules. Direct chunk limit determines how many direct links someone can make on a time
+/// index before links are turned into linked list form. Spam limit determines how many max links a given agent can
+/// create on some chunk
 pub fn set_chunk_limit(direct_chunk_limit: usize, spam_limit: usize) {
     DIRECT_CHUNK_LINK_LIMIT
         .set(direct_chunk_limit)
@@ -100,6 +142,10 @@ pub fn set_chunk_limit(direct_chunk_limit: usize, spam_limit: usize) {
         .expect("Could not set ENFORCE_SPAM_LIMIT");
 }
 
+//NOTE: this is actually not really needed; instead we can just set genesis as unix time epoch and the have order
+//be derived from this
+/// Set the first chunk of the DHT. This is the chunk that all others will use as reference for ordering
+/// This can be called on your DNA init and should be sometime in the past
 pub fn set_gensis_chunk(chunk: entries::TimeChunk) {
     GENESIS_CHUNK
         .set(chunk)

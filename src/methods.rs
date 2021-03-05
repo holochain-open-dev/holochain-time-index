@@ -45,12 +45,12 @@ impl TimeChunk {
     }
 
     /// Return the hash of the entry
-    pub fn hash(&self) -> ExternResult<EntryHash> {
+    pub(crate) fn hash(&self) -> ExternResult<EntryHash> {
         hash_entry(self)
     }
 
     /// Reads current chunk and moves back N step intervals and tries to get that chunk
-    pub fn get_previous_chunk(&self, back_steps: u32) -> ExternResult<Option<TimeChunk>> {
+    pub(crate) fn get_previous_chunk(&self, back_steps: u32) -> ExternResult<Option<TimeChunk>> {
         let max_chunk_interval = unwrap_chunk_interval_lock();
         let last_chunk = TimeChunk {
             from: self.from - (max_chunk_interval * back_steps),
@@ -136,7 +136,7 @@ impl TimeChunk {
     }
 
     /// Get all chunks that exist for some time period between from -> until
-    pub fn get_chunks_for_time_span(
+    pub(crate) fn get_chunks_for_time_span(
         _from: DateTime<Utc>,
         _until: DateTime<Utc>,
     ) -> ExternResult<Vec<EntryHash>> {
@@ -146,70 +146,4 @@ impl TimeChunk {
         //to be used to find chunks
         Ok(vec![])
     }
-
-    pub fn add_link(&self, _target: EntryHash) -> ExternResult<()> {
-        //TODO
-        //Read how many links an agent already has on a given chunk
-        //If under DIRECT_CHUNK_LINK_LIMIT then make direct link
-        //otherwise create linked list starting from latest link or latest link in chain of links
-        Ok(())
-    }
-
-    pub fn get_links(&self, _limit: u32) -> ExternResult<Vec<EntryHash>> {
-        //TODO
-        //Read for direct links on chunk as well as traverse into any linked list on a chunk to find
-        //any other linked addresses
-        Ok(vec![])
-    }
-
-    pub fn validate_chunk(&self) -> ExternResult<()> {
-        let max_chunk_interval = unwrap_chunk_interval_lock();
-        //TODO: incorrect error type being used here
-        if self.from > sys_time()? {
-            return Err(WasmError::Zome(String::from(
-                "Time chunk cannot start in the future",
-            )));
-        };
-        if self.until - self.from != max_chunk_interval {
-            return Err(WasmError::Zome(String::from(
-                "Time chunk should use period equal to max interval set by DNA",
-            )));
-        };
-        if self.until - self.from != max_chunk_interval {
-            return Err(WasmError::Zome(String::from(
-                "Time chunk should use period equal to max interval set by DNA",
-            )));
-        };
-        //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-        let genesis = unwrap_genesis_chunk();
-        if (self.from - genesis.from).as_millis() % max_chunk_interval.as_millis() != 0 {
-            return Err(WasmError::Zome(String::from(
-                "Time chunk does not follow chunk interval ordering since genesis",
-            )));
-        };
-        Ok(())
-    }
-
-    // pub fn validate_chunk_link(&self, link: LinkData) -> ExternResult<()> {
-    //     //Interesting interplay developing here
-    //     //The complexity to make one link increases with number of links on that chunk
-    //     //Thus you could say its worth making chunks as small as possible
-    //     //But then you may get added retrieval complexity for a given timeperiod
-    //     //I.e having to ask for links on 100 individual second chunks vs two 50 second chunks
-    //     //You could probably algorithmically deduce the ideal value for retrival vs commit intensity
-    //     if get_links(self.hash(), None).filter(|commited_link| commited_link.author == link.author).count() -1 > DIRECT_CHUNK_LIMIT {
-    //         return Err(())
-    //     } else {
-    //         return Ok(())
-    //     }
-    // }
 }
-
-// /// Will take current time and try to find a chunk that fits; if no chunk is found then it will create a chunk that fits
-// pub fn get_valid_chunk() -> ExternResult<TimeChunk> {
-//     //TODO:
-//     //determine how many hops from genesis until value until we would get a chunk where the
-//     //current time would fit inside the from & until of chunk. Try to get this chunk
-//     //if it does not exist then create it and return other wise just return retrieved chunk
-//     Ok(TimeChunk)
-// }

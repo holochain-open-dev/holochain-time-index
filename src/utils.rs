@@ -7,7 +7,7 @@ use crate::entries::{
     DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, TimeIndex, YearIndex,
 };
 use crate::{
-    DIRECT_CHUNK_LINK_LIMIT, ENFORCE_SPAM_LIMIT, GENESIS_CHUNK, MAX_CHUNK_INTERVAL,
+    DIRECT_CHUNK_LINK_LIMIT, ENFORCE_SPAM_LIMIT, MAX_CHUNK_INTERVAL,
     TIME_INDEX_DEPTH,
 };
 
@@ -181,11 +181,4 @@ pub(crate) fn unwrap_spam_limit() -> usize {
     *ENFORCE_SPAM_LIMIT
         .read()
         .expect("Could not read from ENFORCE_SPAM_LIMIT")
-}
-
-pub(crate) fn unwrap_genesis_chunk() -> TimeChunk {
-    GENESIS_CHUNK
-        .read()
-        .expect("Could not read from GENESIS_CHUNK")
-        .clone()
 }

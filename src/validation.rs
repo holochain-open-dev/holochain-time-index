@@ -1,7 +1,7 @@
 use hdk3::prelude::*;
 
 use crate::entries::TimeChunk;
-use crate::utils::{unwrap_chunk_interval_lock, unwrap_genesis_chunk};
+use crate::utils::{unwrap_chunk_interval_lock};
 
 impl TimeChunk {
     pub fn validate_chunk(&self) -> ExternResult<()> {
@@ -22,11 +22,9 @@ impl TimeChunk {
                 "Time chunk should use period equal to max interval set by DNA",
             )));
         };
-        //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-        let genesis = unwrap_genesis_chunk();
-        if (self.from - genesis.from).as_millis() % max_chunk_interval.as_millis() != 0 {
+        if self.from.as_millis() % max_chunk_interval.as_millis() != 0 {
             return Err(WasmError::Zome(String::from(
-                "Time chunk does not follow chunk interval ordering since genesis",
+                "Time chunk does not follow chunk interval ordering",
             )));
         };
         Ok(())

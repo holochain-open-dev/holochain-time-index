@@ -5,8 +5,7 @@ use crate::entries::{
     DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, TimeIndex, YearIndex,
 };
 use crate::utils::{
-    add_time_index_to_path, find_newest_time_path, get_time_path, unwrap_chunk_interval_lock,
-    unwrap_genesis_chunk,
+    add_time_index_to_path, find_newest_time_path, get_time_path, unwrap_chunk_interval_lock
 };
 
 impl TimeChunk {
@@ -24,11 +23,9 @@ impl TimeChunk {
                 "Time chunk should use period equal to max interval set by DNA",
             )));
         };
-        //Genesis should actually be embedded into DHT via properties; this saves lookup on each insert/validation
-        let genesis = unwrap_genesis_chunk();
-        if (self.from - genesis.from).as_millis() % max_chunk_interval.as_millis() != 0 {
+        if self.from.as_millis() % max_chunk_interval.as_millis() != 0 {
             return Err(WasmError::Zome(String::from(
-                "Time chunk does not follow chunk interval ordering since genesis",
+                "Time chunk does not follow chunk interval ordering",
             )));
         };
 
@@ -67,7 +64,7 @@ impl TimeChunk {
     }
 
     /// Get current chunk using sys_time as source for time
-    pub fn get_current_chunk() -> ExternResult<Option<TimeChunk>> {
+    pub fn get_current_chunk(index: String) -> ExternResult<Option<TimeChunk>> {
         //Running with the asumption here that sys_time is always UTC
         let now = sys_time()?;
         let now = DateTime::<Utc>::from_utc(
@@ -75,7 +72,8 @@ impl TimeChunk {
             Utc,
         );
         //Create current time path
-        let mut time_path = vec![Component::from("time")];
+        //Note here do we want the option to specify the root of the index; i.e being able to create time index over different "anchor" points
+        let mut time_path = vec![Component::from(index)];
         add_time_index_to_path::<YearIndex>(&mut time_path, &now, TimeIndex::Year)?;
         add_time_index_to_path::<MonthIndex>(&mut time_path, &now, TimeIndex::Month)?;
         add_time_index_to_path::<DayIndex>(&mut time_path, &now, TimeIndex::Day)?;
@@ -102,8 +100,8 @@ impl TimeChunk {
     }
 
     /// Traverses time tree following latest time links until it finds the latest chunk
-    pub fn get_latest_chunk() -> ExternResult<TimeChunk> {
-        let time_path = Path::from(vec![Component::from("time")]);
+    pub fn get_latest_chunk(index: String) -> ExternResult<TimeChunk> {
+        let time_path = Path::from(vec![Component::from(index)]);
 
         let time_path = find_newest_time_path::<YearIndex>(time_path, TimeIndex::Year)?;
         let time_path = find_newest_time_path::<MonthIndex>(time_path, TimeIndex::Month)?;

@@ -69,7 +69,7 @@ mod traits;
 /// Trait to impl on entries that you want to add to time index
 pub use traits::EntryTimeIndex;
 
-use entries::{TimeChunk, TimeIndex};
+use entries::TimeIndex;
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
@@ -97,7 +97,7 @@ pub fn get_most_recent_addresses(link_tag: Option<LinkTag>) -> ExternResult<Vec<
 
 /// Index a given entry. Uses ['EntryTimeIndex::entry_time()'] to get time it should be indexed under.
 /// Will create link from time path to entry with link_tag passed into fn
-pub fn index<T: EntryTimeIndex>(data: T, link_tag: LinkTag) -> ExternResult<()> {
+pub fn index_entry<T: EntryTimeIndex>(index: String, data: T, link_tag: LinkTag) -> ExternResult<()> {
     Ok(())
 }
 
@@ -106,11 +106,6 @@ pub fn set_chunk_interval(interval: Duration) {
     MAX_CHUNK_INTERVAL
         .set(interval)
         .expect("Could not set MAX_CHUNK_INTERVAL");
-    let genesis_chunk = TimeChunk {
-        from: std::time::Duration::new(0, 0),
-        until: interval,
-    };
-    set_gensis_chunk(genesis_chunk);
 
     if interval < Duration::from_secs(1) {
         TIME_INDEX_DEPTH
@@ -148,16 +143,6 @@ pub fn set_chunk_limit(direct_chunk_limit: usize, spam_limit: usize) {
         .expect("Could not set ENFORCE_SPAM_LIMIT");
 }
 
-//NOTE: this is actually not really needed; instead we can just set genesis as unix time epoch and the have order
-//be derived from this
-/// Set the first chunk of the DHT. This is the chunk that all others will use as reference for ordering
-/// This can be called on your DNA init and should be sometime in the past
-fn set_gensis_chunk(chunk: entries::TimeChunk) {
-    GENESIS_CHUNK
-        .set(chunk)
-        .expect("Could not set GENESIS_CHUNK");
-}
-
 // Configuration
 lazy_static! {
     //Point at which links coming from a given agent need to be added together as linked list vs a standard link on given chunk
@@ -169,6 +154,4 @@ lazy_static! {
     //Determine what depth of time index chunks should be hung from; this is the only piece that can be left as so
     //and not directly derived from DNA properties
     pub static ref TIME_INDEX_DEPTH: MutStatic<Vec<entries::TimeIndex>> = MutStatic::new();
-    //Genesis chunk; i.e the first chunk that is created; all others will use this as reference for ordering
-    pub static ref GENESIS_CHUNK: MutStatic<entries::TimeChunk> = MutStatic::new();
 }

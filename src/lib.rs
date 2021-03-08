@@ -34,13 +34,13 @@
 //! ### Exposed Functions
 //!
 //! This DNA exposes a few helper functions to make operating with chunked data easy. Ones of note are:
-//! ['TimeChunk::get_current_chunk()'], ['TimeChunk::get_latest_chunk()'], ['TimeChunk::get_chunks_for_time_span()'], ['TimeChunk::add_link()'] & ['TimeChunk::get_links()']
+//! ['TimeIndex::get_current_chunk()'], ['TimeIndex::get_latest_chunk()'], ['TimeIndex::get_chunks_for_time_span()'], ['TimeIndex::add_link()'] & ['TimeIndex::get_links()']
 //!
-//! ['TimeChunk::get_current_chunk()'] will take the current time as denoted by sys_time() and return null or a chunk that can be used to served entries for the current time.
-//! ['TimeChunk::get_latest_chunk()'] will search though the DNA's time "index" and find the last commited chunk and return it.
-//! ['TimeChunk::get_chunks_for_time_span()'] will return all chunks that served in a given time span
-//! ['TimeChunk::add_link()'] will create a link on a chunk. This will happen either directly or by the linked list fashion as explained above.
-//! ['TimeChunk::get_links()'] will get links from the chunk, recursing down any linked lists to ensure that all links are returned for a given chunk.
+//! ['TimeIndex::get_current_chunk()'] will take the current time as denoted by sys_time() and return null or a chunk that can be used to served entries for the current time.
+//! ['TimeIndex::get_latest_chunk()'] will search though the DNA's time "index" and find the last commited chunk and return it.
+//! ['TimeIndex::get_chunks_for_time_span()'] will return all chunks that served in a given time span
+//! ['TimeIndex::add_link()'] will create a link on a chunk. This will happen either directly or by the linked list fashion as explained above.
+//! ['TimeIndex::get_links()'] will get links from the chunk, recursing down any linked lists to ensure that all links are returned for a given chunk.
 //!
 //! ### hApp Usage
 //!
@@ -49,8 +49,8 @@
 #[macro_use]
 extern crate lazy_static;
 
-use chrono::{DateTime, Utc, NaiveDateTime};
-use mut_static::MutStatic;
+use chrono::{DateTime, NaiveDateTime, Utc};
+use std::sync::RwLock;
 use std::time::Duration;
 
 use hdk3::prelude::*;
@@ -67,13 +67,13 @@ pub mod entries;
 
 mod traits;
 /// Trait to impl on entries that you want to add to time index
-pub use traits::EntryTimeIndex;
+pub use traits::IndexableEntry;
 
-use entries::{TimeIndex, TimeChunk};
+use entries::TimeIndex;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct EntryChunkIndex {
-    pub chunk: TimeChunk,
+    pub chunk: TimeIndex,
     pub addresses: Vec<EntryHash>
 }
 
@@ -90,7 +90,7 @@ pub fn get_addresses_since(
         Utc,
     );
     let mut out: Vec<EntryChunkIndex> = vec![];
-    let chunks = TimeChunk::get_chunks_for_time_span(last_seen, now)?;
+    let chunks = TimeIndex::get_chunks_for_time_span(last_seen, now)?;
     for chunk in chunks {
         let links = chunk.get_links(link_tag.clone(), limit)?;
         out.push(EntryChunkIndex {
@@ -104,7 +104,7 @@ pub fn get_addresses_since(
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
 /// at the current time index which will cover as much time as the current system time - MAX_CHUNK_INTERVAL
 pub fn get_current_addresses(index: String, link_tag: Option<LinkTag>, limit: Option<usize>) -> ExternResult<Option<EntryChunkIndex>> {
-    match TimeChunk::get_current_chunk(index)? {
+    match TimeIndex::get_current_chunk(index)? {
         Some(chunk) => {
             let links = chunk.get_links(link_tag, limit)?;
             Ok(Some(EntryChunkIndex {
@@ -116,12 +116,11 @@ pub fn get_current_addresses(index: String, link_tag: Option<LinkTag>, limit: Op
     }
 }
 
-//NOTE: here we will likely also want to return the chunk which the entries came from. Otherwise there is no way to know
-//what time frame these results are coming from
-/// Searches time index for most recent chunk and returns links from that chunk
+//TODO: this should return option
+/// Searches time index for most recent index and returns links from that index
 /// Guaranteed to return results if some index's have been made
-pub fn get_most_recent_addresses(index: String, link_tag: Option<LinkTag>, limit: Option<usize>) -> ExternResult<EntryChunkIndex> {
-    let recent_chunk = TimeChunk::get_latest_chunk(index)?;
+pub fn get_most_recent_indexes(index: String, link_tag: Option<LinkTag>, limit: Option<usize>) -> ExternResult<EntryChunkIndex> {
+    let recent_chunk = TimeIndex::get_latest_chunk(index)?;
     let links = recent_chunk.get_links(link_tag, limit)?;
     Ok(EntryChunkIndex {
         chunk: recent_chunk,
@@ -129,59 +128,66 @@ pub fn get_most_recent_addresses(index: String, link_tag: Option<LinkTag>, limit
     })
 }
 
-/// Index a given entry. Uses ['EntryTimeIndex::entry_time()'] to get time it should be indexed under.
+/// Index a given entry. Uses ['IndexableEntry::entry_time()'] to get time it should be indexed under.
 /// Will create link from time path to entry with link_tag passed into fn
-pub fn index_entry<T: EntryTimeIndex, LT: Into<LinkTag>>(index: String, data: T, link_tag: LT) -> ExternResult<()> {
-    let chunk = TimeChunk::create_for_timestamp(index, data.entry_time())?;
+pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(index: String, data: T, link_tag: LT) -> ExternResult<()> {
+    debug!("RECEIVED CALL MAKE CHUNK\n\n\n\n\n\n\n");
+    let chunk = TimeIndex::create_for_timestamp(index, data.entry_time())?;
+    debug!("GOT CHUNK: {:#?}", chunk);
     chunk.add_link(data.hash()?, link_tag)?;
     Ok(())
 }
 
-/// Set the interval which a chunk represents. This should be carefully selected based on link limits set and popularity of DHT
-pub fn set_index_interval(interval: Duration) {
-    MAX_CHUNK_INTERVAL
-        .set(interval)
-        .expect("Could not set MAX_CHUNK_INTERVAL");
+// /// Set the interval which a time index represents. This should be carefully selected based on link limits set and popularity of DHT.
+// pub (crate) fn set_index_interval(interval: Duration) {
+//     let mut w = MAX_CHUNK_INTERVAL.write().expect("Could not set MAX_CHUNK_INTERVAL");
+//     *w = interval;
 
-    if interval < Duration::from_secs(1) {
-        TIME_INDEX_DEPTH
-            .set(vec![
-                TimeIndex::Second,
-                TimeIndex::Minute,
-                TimeIndex::Hour,
-                TimeIndex::Day,
-            ])
-            .expect("Could not set TIME_INDEX_DEPTH");
-    } else if interval < Duration::from_secs(60) {
-        TIME_INDEX_DEPTH
-            .set(vec![TimeIndex::Minute, TimeIndex::Hour, TimeIndex::Day])
-            .expect("Could not set TIME_INDEX_DEPTH");
-    } else if interval < Duration::from_secs(3600) {
-        TIME_INDEX_DEPTH
-            .set(vec![TimeIndex::Hour, TimeIndex::Day])
-            .expect("Could not set TIME_INDEX_DEPTH");
-    } else {
-        TIME_INDEX_DEPTH
-            .set(vec![TimeIndex::Day])
-            .expect("Could not set TIME_INDEX_DEPTH");
-    };
-}
+//     if interval < Duration::from_secs(1) {
+//         let mut tw = TIME_INDEX_DEPTH
+//             .write()
+//             .expect("Could not set TIME_INDEX_DEPTH");
+//         *tw = vec![
+//             TimeIndexType::Second,
+//             TimeIndexType::Minute,
+//             TimeIndexType::Hour,
+//             TimeIndexType::Day,
+//         ];
+//     } else if interval < Duration::from_secs(60) {
+//         let mut tw = TIME_INDEX_DEPTH
+//             .write()
+//             .expect("Could not set TIME_INDEX_DEPTH");
+//         *tw = vec![TimeIndexType::Minute, TimeIndexType::Hour, TimeIndexType::Day];
+//     } else if interval < Duration::from_secs(3600) {
+//         let mut tw = TIME_INDEX_DEPTH
+//             .write()
+//             .expect("Could not set TIME_INDEX_DEPTH");
+//         *tw = vec![TimeIndexType::Hour, TimeIndexType::Day];
+//     } else {
+//         let mut tw = TIME_INDEX_DEPTH
+//             .write()
+//             .expect("Could not set TIME_INDEX_DEPTH");
+//         *tw = vec![TimeIndexType::Day];
+//     };
+// }
 
-/// Set spam protection/DHT hotspot rules. Spam limit determines how many max links a given agent can
-/// create on some time index
-pub fn set_index_limit(spam_limit: usize) {
-    ENFORCE_SPAM_LIMIT
-        .set(spam_limit)
-        .expect("Could not set ENFORCE_SPAM_LIMIT");
-}
+// /// Set spam protection/DHT hotspot rules. Spam limit determines how many max links a given agent can
+// /// create on a time index
+// pub (crate) fn set_index_limit(spam_limit: usize) {
+//     let mut w = ENFORCE_SPAM_LIMIT
+//         .write()
+//         .expect("Could not set ENFORCE_SPAM_LIMIT");
+//     *w = spam_limit;
+// }
 
 // Configuration
+// TODO: using rwlock and setter functions does not work in HC since each zome call fn is sandboxed and not a long running bin
+// these vars should instead be grabbed from DNA properies. For now these props can just be init with below values.
 lazy_static! {
     //Point at which links are considered spam and linked expressions are not allowed
-    pub static ref ENFORCE_SPAM_LIMIT: MutStatic<usize> = MutStatic::new();
+    pub static ref ENFORCE_SPAM_LIMIT: RwLock<usize> = RwLock::new(20);
     //Max duration of given time chunk
-    pub static ref MAX_CHUNK_INTERVAL: MutStatic<Duration> = MutStatic::new();
-    //Determine what depth of time index chunks should be hung from; this is the only piece that can be left as so
-    //and not directly derived from DNA properties
-    pub static ref TIME_INDEX_DEPTH: MutStatic<Vec<entries::TimeIndex>> = MutStatic::new();
+    pub static ref MAX_CHUNK_INTERVAL: RwLock<Duration> = RwLock::new(Duration::new(10, 0));
+    //Determine what depth of time index chunks should be hung from
+    pub static ref TIME_INDEX_DEPTH: RwLock<Vec<entries::TimeIndexType>> = RwLock::new(vec![]);
 }

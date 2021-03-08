@@ -1,12 +1,12 @@
 [package]
-name = "simple_zome"
+name = "testing_zome"
 version = "0.1.0"
 authors = ["jdeepee <joshuadparkin@gmail.com>"]
 edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-name = "simple_zome"
+name = "testing_zome"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,6 +22,6 @@ hdk3 = { git = "https://github.com/holochain/holochain.git", rev = "fd8049a" }
 #derive_more = "0"
 serde = "1"
 lazy_static = "*"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 mut_static = "*"
-hc_time_index = { path = "../hc_time_index" }
+hc_time_index = { path = "../../" }

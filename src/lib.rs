@@ -72,12 +72,6 @@ pub use traits::EntryTimeIndex;
 use entries::{TimeIndex, TimeChunk};
 
 #[derive(Serialize, Deserialize)]
-pub struct IndexedEntry {
-    pub entry: EntryHash,
-    pub period: TimeChunk
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct EntryChunkIndex {
     pub chunk: TimeChunk,
     pub addresses: Vec<EntryHash>
@@ -89,14 +83,22 @@ pub fn get_addresses_since(
     last_seen: DateTime<Utc>,
     limit: Option<usize>,
     link_tag: Option<LinkTag>,
-) -> ExternResult<Vec<IndexedEntry>> {
+) -> ExternResult<Vec<EntryChunkIndex>> {
     let now = sys_time()?;
     let now = DateTime::<Utc>::from_utc(
         NaiveDateTime::from_timestamp(now.as_secs_f64() as i64, now.subsec_nanos()),
         Utc,
     );
+    let mut out: Vec<EntryChunkIndex> = vec![];
     let chunks = TimeChunk::get_chunks_for_time_span(last_seen, now)?;
-    Ok(vec![])
+    for chunk in chunks {
+        let links = chunk.get_links(link_tag.clone(), limit)?;
+        out.push(EntryChunkIndex {
+            chunk: chunk,
+            addresses: links
+        })
+    };
+    Ok(out)
 }
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
@@ -136,7 +138,7 @@ pub fn index_entry<T: EntryTimeIndex, LT: Into<LinkTag>>(index: String, data: T,
 }
 
 /// Set the interval which a chunk represents. This should be carefully selected based on link limits set and popularity of DHT
-pub fn set_chunk_interval(interval: Duration) {
+pub fn set_index_interval(interval: Duration) {
     MAX_CHUNK_INTERVAL
         .set(interval)
         .expect("Could not set MAX_CHUNK_INTERVAL");
@@ -165,13 +167,9 @@ pub fn set_chunk_interval(interval: Duration) {
     };
 }
 
-/// Set spam protection/DHT hotspot rules. Direct chunk limit determines how many direct links someone can make on a time
-/// index before links are turned into linked list form. Spam limit determines how many max links a given agent can
-/// create on some chunk
-pub fn set_chunk_limit(_direct_chunk_limit: usize, spam_limit: usize) {
-    // DIRECT_CHUNK_LINK_LIMIT
-    //     .set(direct_chunk_limit)
-    //     .expect("Could not set DIRECT_CHUNK_LINK_LIMIT");
+/// Set spam protection/DHT hotspot rules. Spam limit determines how many max links a given agent can
+/// create on some time index
+pub fn set_index_limit(spam_limit: usize) {
     ENFORCE_SPAM_LIMIT
         .set(spam_limit)
         .expect("Could not set ENFORCE_SPAM_LIMIT");
@@ -179,9 +177,7 @@ pub fn set_chunk_limit(_direct_chunk_limit: usize, spam_limit: usize) {
 
 // Configuration
 lazy_static! {
-    //Point at which links coming from a given agent need to be added together as linked list vs a standard link on given chunk
-    //pub static ref DIRECT_CHUNK_LINK_LIMIT: MutStatic<usize> = MutStatic::new();
-    //Point at which links are considered spam and linked list expressions are not allowed
+    //Point at which links are considered spam and linked expressions are not allowed
     pub static ref ENFORCE_SPAM_LIMIT: MutStatic<usize> = MutStatic::new();
     //Max duration of given time chunk
     pub static ref MAX_CHUNK_INTERVAL: MutStatic<Duration> = MutStatic::new();

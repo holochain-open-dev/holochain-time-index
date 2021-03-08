@@ -29,15 +29,12 @@ impl TimeChunk {
             )));
         };
 
-        let time_path = get_time_path(index, self.from)?;
+        let mut time_path = get_time_path(index, self.from)?;
+        time_path.push(SerializedBytes::try_from(self)?.bytes().to_owned().into());
 
-        //Create the TimeChunk entry
-        create_entry(self)?;
-
-        //Link TimeChunk entry to time tree
+        //Add time chunk entry to time tree and create
         let time_path = Path::from(time_path);
         time_path.ensure()?;
-        create_link(time_path.hash()?, self.hash()?, LinkTag::new("chunk"))?;
         Ok(())
     }
 
@@ -82,8 +79,9 @@ impl TimeChunk {
         add_time_index_to_path::<SecondIndex>(&mut time_path, &now, TimeIndex::Second)?;
         let time_path = Path::from(time_path);
 
-        let chunks = get_links(time_path.hash()?, Some(LinkTag::new("chunk")))?;
+        let chunks = get_links(time_path.hash()?, None)?;
         let mut latest_chunk = chunks.into_inner();
+        //TODO: this actually needs to read the chunk data vs just link timestamp
         latest_chunk.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
 
         match latest_chunk.pop() {
@@ -109,8 +107,9 @@ impl TimeChunk {
         let time_path = find_newest_time_path::<HourIndex>(time_path, TimeIndex::Hour)?;
         let time_path = find_newest_time_path::<MinuteIndex>(time_path, TimeIndex::Minute)?;
 
-        let chunks = get_links(time_path.hash()?, Some(LinkTag::new("chunk")))?;
+        let chunks = get_links(time_path.hash()?, None)?;
         let mut latest_chunk = chunks.into_inner();
+        //TODO: this actually needs to read the chunk data vs just link timestamp
         latest_chunk.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
 
         match latest_chunk.pop() {
@@ -137,7 +136,7 @@ impl TimeChunk {
     pub(crate) fn get_chunks_for_time_span(
         _from: DateTime<Utc>,
         _until: DateTime<Utc>,
-    ) -> ExternResult<Vec<EntryHash>> {
+    ) -> ExternResult<Vec<TimeChunk>> {
         //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
         //If it is lower then no results will ever be returned
         //Next is to deduce how tree should be traversed and what time index level/path(s)

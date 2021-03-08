@@ -187,12 +187,6 @@ pub(crate) fn unwrap_time_index_depth() -> Vec<TimeIndex> {
         .clone()
 }
 
-// pub(crate) fn unwrap_direct_chunk_limit() -> usize {
-//     *DIRECT_CHUNK_LINK_LIMIT
-//         .read()
-//         .expect("Could not read from DIRECT_CHUNK_LINK_LIMIT")
-// }
-
 pub(crate) fn unwrap_spam_limit() -> usize {
     *ENFORCE_SPAM_LIMIT
         .read()
@@ -200,13 +194,13 @@ pub(crate) fn unwrap_spam_limit() -> usize {
 }
 
 mod util_tests {
-    use crate::set_chunk_interval;
+    use crate::set_index_interval;
     use crate::utils::get_chunk_for_timestamp;
 
     #[test]
     fn test_get_chunk_time() {
         let interval = 5;
-        set_chunk_interval(std::time::Duration::new(interval, 0));
+        set_index_interval(std::time::Duration::new(interval, 0));
         let chunk = get_chunk_for_timestamp(chrono::Utc::now());
         assert_eq!(chunk.from.as_secs() % interval, 0);
         assert_eq!(chunk.until.as_secs() % interval, 0);

@@ -23,7 +23,6 @@ impl IndexableEntry for TestEntry {
 }
 
 entry_defs![
-    entries::TimeIndex::entry_def(),
     Path::entry_def(),
     TestEntry::entry_def()
 ];
@@ -36,7 +35,7 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
 #[hdk_extern]
 pub fn index_entry(entry: TestEntry) -> ExternResult<()> {
     create_entry(&entry)?;
-    hc_time_index::index_entry(String::from("test_index"), entry, ())?;
+    hc_time_index::index_entry(String::from("test_index"), entry, LinkTag::new("test"))?;
     Ok(())
 }
 
@@ -67,6 +66,6 @@ pub fn get_current_addresses(input: GetCurrentAddressesInput) -> ExternResult<Op
 }
 
 #[hdk_extern]
-pub fn get_most_recent_indexes(input: GetCurrentAddressesInput) -> ExternResult<EntryChunkIndex> {
+pub fn get_most_recent_indexes(input: GetCurrentAddressesInput) -> ExternResult<Option<EntryChunkIndex>> {
     Ok(hc_time_index::get_most_recent_indexes(input.index, input.link_tag, input.limit)?)
 }

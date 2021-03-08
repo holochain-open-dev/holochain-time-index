@@ -1,7 +1,7 @@
 use hdk3::prelude::*;
 
 use crate::entries::TimeIndex;
-use crate::utils::{unwrap_chunk_interval_lock};
+use crate::utils::unwrap_chunk_interval_lock;
 
 impl TimeIndex {
     pub fn validate_chunk(&self) -> ExternResult<()> {

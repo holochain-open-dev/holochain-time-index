@@ -49,7 +49,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, NaiveDateTime};
 use mut_static::MutStatic;
 use std::time::Duration;
 
@@ -69,7 +69,19 @@ mod traits;
 /// Trait to impl on entries that you want to add to time index
 pub use traits::EntryTimeIndex;
 
-use entries::TimeIndex;
+use entries::{TimeIndex, TimeChunk};
+
+#[derive(Serialize, Deserialize)]
+pub struct IndexedEntry {
+    pub entry: EntryHash,
+    pub period: TimeChunk
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EntryChunkIndex {
+    pub chunk: TimeChunk,
+    pub addresses: Vec<EntryHash>
+}
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
@@ -77,27 +89,49 @@ pub fn get_addresses_since(
     last_seen: DateTime<Utc>,
     limit: Option<usize>,
     link_tag: Option<LinkTag>,
-) -> ExternResult<Vec<EntryHash>> {
+) -> ExternResult<Vec<IndexedEntry>> {
+    let now = sys_time()?;
+    let now = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(now.as_secs_f64() as i64, now.subsec_nanos()),
+        Utc,
+    );
+    let chunks = TimeChunk::get_chunks_for_time_span(last_seen, now)?;
     Ok(vec![])
 }
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
 /// at the current time index which will cover as much time as the current system time - MAX_CHUNK_INTERVAL
-pub fn get_current_addresses(link_tag: Option<LinkTag>) -> ExternResult<Vec<EntryHash>> {
-    Ok(vec![])
+pub fn get_current_addresses(index: String, link_tag: Option<LinkTag>, limit: Option<usize>) -> ExternResult<Option<EntryChunkIndex>> {
+    match TimeChunk::get_current_chunk(index)? {
+        Some(chunk) => {
+            let links = chunk.get_links(link_tag, limit)?;
+            Ok(Some(EntryChunkIndex {
+                chunk: chunk,
+                addresses: links
+            }))
+        },
+        None => Ok(None)
+    }
 }
 
 //NOTE: here we will likely also want to return the chunk which the entries came from. Otherwise there is no way to know
 //what time frame these results are coming from
 /// Searches time index for most recent chunk and returns links from that chunk
 /// Guaranteed to return results if some index's have been made
-pub fn get_most_recent_addresses(link_tag: Option<LinkTag>) -> ExternResult<Vec<EntryHash>> {
-    Ok(vec![])
+pub fn get_most_recent_addresses(index: String, link_tag: Option<LinkTag>, limit: Option<usize>) -> ExternResult<EntryChunkIndex> {
+    let recent_chunk = TimeChunk::get_latest_chunk(index)?;
+    let links = recent_chunk.get_links(link_tag, limit)?;
+    Ok(EntryChunkIndex {
+        chunk: recent_chunk,
+        addresses: links
+    })
 }
 
 /// Index a given entry. Uses ['EntryTimeIndex::entry_time()'] to get time it should be indexed under.
 /// Will create link from time path to entry with link_tag passed into fn
-pub fn index_entry<T: EntryTimeIndex>(index: String, data: T, link_tag: LinkTag) -> ExternResult<()> {
+pub fn index_entry<T: EntryTimeIndex, LT: Into<LinkTag>>(index: String, data: T, link_tag: LT) -> ExternResult<()> {
+    let chunk = TimeChunk::create_for_timestamp(index, data.entry_time())?;
+    chunk.add_link(data.hash()?, link_tag)?;
     Ok(())
 }
 
@@ -134,10 +168,10 @@ pub fn set_chunk_interval(interval: Duration) {
 /// Set spam protection/DHT hotspot rules. Direct chunk limit determines how many direct links someone can make on a time
 /// index before links are turned into linked list form. Spam limit determines how many max links a given agent can
 /// create on some chunk
-pub fn set_chunk_limit(direct_chunk_limit: usize, spam_limit: usize) {
-    DIRECT_CHUNK_LINK_LIMIT
-        .set(direct_chunk_limit)
-        .expect("Could not set DIRECT_CHUNK_LINK_LIMIT");
+pub fn set_chunk_limit(_direct_chunk_limit: usize, spam_limit: usize) {
+    // DIRECT_CHUNK_LINK_LIMIT
+    //     .set(direct_chunk_limit)
+    //     .expect("Could not set DIRECT_CHUNK_LINK_LIMIT");
     ENFORCE_SPAM_LIMIT
         .set(spam_limit)
         .expect("Could not set ENFORCE_SPAM_LIMIT");
@@ -146,7 +180,7 @@ pub fn set_chunk_limit(direct_chunk_limit: usize, spam_limit: usize) {
 // Configuration
 lazy_static! {
     //Point at which links coming from a given agent need to be added together as linked list vs a standard link on given chunk
-    pub static ref DIRECT_CHUNK_LINK_LIMIT: MutStatic<usize> = MutStatic::new();
+    //pub static ref DIRECT_CHUNK_LINK_LIMIT: MutStatic<usize> = MutStatic::new();
     //Point at which links are considered spam and linked list expressions are not allowed
     pub static ref ENFORCE_SPAM_LIMIT: MutStatic<usize> = MutStatic::new();
     //Max duration of given time chunk

@@ -7,7 +7,7 @@ use crate::entries::{
     DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, TimeIndex, YearIndex,
 };
 use crate::{
-    DIRECT_CHUNK_LINK_LIMIT, ENFORCE_SPAM_LIMIT, MAX_CHUNK_INTERVAL,
+    ENFORCE_SPAM_LIMIT, MAX_CHUNK_INTERVAL,
     TIME_INDEX_DEPTH,
 };
 
@@ -140,14 +140,14 @@ pub fn add_time_index_to_path<
     Ok(())
 }
 
-pub fn get_time_path(from: std::time::Duration) -> ExternResult<Vec<Component>> {
+pub fn get_time_path(index: String, from: std::time::Duration) -> ExternResult<Vec<Component>> {
     //Create timestamp "tree"; i.e 2020 -> 02 -> 16 -> chunk
     //Create from timestamp
     let from_timestamp = DateTime::<Utc>::from_utc(
         NaiveDateTime::from_timestamp(from.as_secs_f64() as i64, from.subsec_nanos()),
         Utc,
     );
-    let mut time_path = vec![Component::from("time")];
+    let mut time_path = vec![Component::from(index)];
     add_time_index_to_path::<YearIndex>(&mut time_path, &from_timestamp, TimeIndex::Year)?;
     add_time_index_to_path::<MonthIndex>(&mut time_path, &from_timestamp, TimeIndex::Month)?;
     add_time_index_to_path::<DayIndex>(&mut time_path, &from_timestamp, TimeIndex::Day)?;
@@ -156,6 +156,22 @@ pub fn get_time_path(from: std::time::Duration) -> ExternResult<Vec<Component>> 
     add_time_index_to_path::<SecondIndex>(&mut time_path, &from_timestamp, TimeIndex::Second)?;
 
     Ok(time_path)
+}
+
+pub (crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> TimeChunk {
+    let now = std::time::Duration::new(time.timestamp() as u64, time.timestamp_subsec_nanos());
+
+    let time_frame = unwrap_chunk_interval_lock();
+    let chunk_index_start = (now.as_nanos() as f64 / time_frame.as_nanos() as f64).floor() as u64;
+    let chunk_start = time_frame.as_nanos() as u64 * chunk_index_start;
+    let chunk_end = time_frame.as_nanos() as u64 * (chunk_index_start + 1_u64);
+
+    let chunk_start = std::time::Duration::from_nanos(chunk_start);
+    let chunk_end = std::time::Duration::from_nanos(chunk_end);
+    TimeChunk {
+        from: chunk_start,
+        until: chunk_end
+    }
 }
 
 pub(crate) fn unwrap_chunk_interval_lock() -> Duration {
@@ -171,14 +187,28 @@ pub(crate) fn unwrap_time_index_depth() -> Vec<TimeIndex> {
         .clone()
 }
 
-pub(crate) fn unwrap_direct_chunk_limit() -> usize {
-    *DIRECT_CHUNK_LINK_LIMIT
-        .read()
-        .expect("Could not read from DIRECT_CHUNK_LINK_LIMIT")
-}
+// pub(crate) fn unwrap_direct_chunk_limit() -> usize {
+//     *DIRECT_CHUNK_LINK_LIMIT
+//         .read()
+//         .expect("Could not read from DIRECT_CHUNK_LINK_LIMIT")
+// }
 
 pub(crate) fn unwrap_spam_limit() -> usize {
     *ENFORCE_SPAM_LIMIT
         .read()
         .expect("Could not read from ENFORCE_SPAM_LIMIT")
+}
+
+mod util_tests {
+    use crate::set_chunk_interval;
+    use crate::utils::get_chunk_for_timestamp;
+
+    #[test]
+    fn test_get_chunk_time() {
+        let interval = 5;
+        set_chunk_interval(std::time::Duration::new(interval, 0));
+        let chunk = get_chunk_for_timestamp(chrono::Utc::now());
+        assert_eq!(chunk.from.as_secs() % interval, 0);
+        assert_eq!(chunk.until.as_secs() % interval, 0);
+    }
 }

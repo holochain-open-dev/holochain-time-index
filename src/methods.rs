@@ -5,12 +5,12 @@ use crate::entries::{
     DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, TimeIndex, YearIndex,
 };
 use crate::utils::{
-    add_time_index_to_path, find_newest_time_path, get_time_path, unwrap_chunk_interval_lock
+    add_time_index_to_path, find_newest_time_path, get_time_path, unwrap_chunk_interval_lock, get_chunk_for_timestamp
 };
 
 impl TimeChunk {
     /// Create a new chunk & link to time index
-    pub(crate) fn create_chunk(&self) -> ExternResult<()> {
+    pub(crate) fn create_chunk(&self, index: String) -> ExternResult<()> {
         //These validations are to help zome callers; but should also be present in validation rules
         if self.from > sys_time()? {
             return Err(WasmError::Zome(String::from(
@@ -29,7 +29,7 @@ impl TimeChunk {
             )));
         };
 
-        let time_path = get_time_path(self.from)?;
+        let time_path = get_time_path(index, self.from)?;
 
         //Create the TimeChunk entry
         create_entry(self)?;
@@ -143,5 +143,23 @@ impl TimeChunk {
         //Next is to deduce how tree should be traversed and what time index level/path(s)
         //to be used to find chunks
         Ok(vec![])
+    }
+
+    /// Gets all links for a given chunk and recurses into any linked lists on chunk
+    /// Note for now linked list recursion will not occur
+    pub (crate) fn get_links(&self, link_tag: Option<LinkTag>, _limit: Option<usize>) -> ExternResult<Vec<EntryHash>> {
+        Ok(get_links(self.hash()?, link_tag)?.into_inner().into_iter().map(|val| val.target).collect())
+    }
+
+    pub (crate) fn add_link<T: Into<LinkTag>>(&self, target: EntryHash, link_tag: T) -> ExternResult<()> {
+        create_link(self.hash()?, target, link_tag)?;
+        Ok(())
+    }
+
+    /// Takes a timestamp and creates a chunk that can be used for indexing at given timestamp
+    pub (crate) fn create_for_timestamp(index: String, time: DateTime<Utc>) -> ExternResult<TimeChunk> {
+        let chunk = get_chunk_for_timestamp(time);
+        chunk.create_chunk(index)?;
+        Ok(chunk)
     }
 }

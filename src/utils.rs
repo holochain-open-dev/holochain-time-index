@@ -4,15 +4,14 @@ use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{
-    DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndexType, TimeIndex, YearIndex,
+    DayIndex, HourIndex, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex,
+    TimeIndexType, YearIndex,
 };
-use crate::{
-    MAX_CHUNK_INTERVAL,
-    TIME_INDEX_DEPTH,
-};
+use crate::{MAX_CHUNK_INTERVAL, TIME_INDEX_DEPTH};
 
-pub (crate) fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
-    let links = path.children()?
+pub(crate) fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
+    let links = path
+        .children()?
         .into_inner()
         .into_iter()
         .map(|link| get(link.target, GetOptions::content()))
@@ -35,7 +34,7 @@ pub (crate) fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
 
 /// Tries to find the newest time period one level down from current path position
 /// Returns path passed in params if maximum depth has been reached
-pub (crate) fn find_newest_time_path<
+pub(crate) fn find_newest_time_path<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + Into<u32>,
 >(
     path: Path,
@@ -98,7 +97,7 @@ pub (crate) fn find_newest_time_path<
     Ok(latest)
 }
 
-pub (crate) fn add_time_index_to_path<
+pub(crate) fn add_time_index_to_path<
     T: TryInto<SerializedBytes, Error = SerializedBytesError> + From<u32>,
 >(
     time_path: &mut Vec<Component>,
@@ -140,14 +139,19 @@ pub (crate) fn add_time_index_to_path<
     Ok(())
 }
 
-pub (crate) fn get_time_path(index: String, from: std::time::Duration) -> ExternResult<Vec<Component>> {
+pub(crate) fn get_time_path(
+    index: String,
+    from: std::time::Duration,
+) -> ExternResult<Vec<Component>> {
     //Create timestamp "tree"; i.e 2020 -> 02 -> 16 -> chunk
     //Create from timestamp
     let from_timestamp = DateTime::<Utc>::from_utc(
         NaiveDateTime::from_timestamp(from.as_secs_f64() as i64, from.subsec_nanos()),
         Utc,
     );
-    let mut time_path = vec![Component::from(index)];
+    let mut time_path = vec![Component::from(
+        IndexIndex(index).get_sb()?.bytes().to_owned(),
+    )];
     add_time_index_to_path::<YearIndex>(&mut time_path, &from_timestamp, TimeIndexType::Year)?;
     add_time_index_to_path::<MonthIndex>(&mut time_path, &from_timestamp, TimeIndexType::Month)?;
     add_time_index_to_path::<DayIndex>(&mut time_path, &from_timestamp, TimeIndexType::Day)?;
@@ -158,7 +162,7 @@ pub (crate) fn get_time_path(index: String, from: std::time::Duration) -> Extern
     Ok(time_path)
 }
 
-pub (crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> TimeIndex {
+pub(crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> TimeIndex {
     debug!("get chunk for ts");
     let now = std::time::Duration::new(time.timestamp() as u64, time.timestamp_subsec_nanos());
     debug!("Now: {:#?}", now);
@@ -172,7 +176,7 @@ pub (crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> TimeIndex {
     let chunk_end = std::time::Duration::from_nanos(chunk_end);
     TimeIndex {
         from: chunk_start,
-        until: chunk_end
+        until: chunk_end,
     }
 }
 

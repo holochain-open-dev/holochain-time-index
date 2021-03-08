@@ -55,10 +55,11 @@ orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   console.log("Agents init'd\n");
   sleep(10000);
 
-  //Get genesis chunk
-  let genesis = await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: new Date().toISOString()})
-  console.log("Got genesis chunk", genesis);
-  t.notEqual(genesis.from, undefined)
+  //Index entry
+  let index = await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: new Date().toISOString()})
+  
+  let get_index = await alice_happ.cells[0].call("time_index", "get_most_recent_indexes", {index: "test_index"})
+  console.log("Get index", get_index);
 })
 
 // Run all registered scenarios as a final step, and gather the report,

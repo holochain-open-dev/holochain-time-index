@@ -1,6 +1,38 @@
 //use chrono::{Duration, DurationRound};
 
-use crate::entries::{DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, YearIndex};
+use std::convert::{TryFrom, TryInto};
+
+use hdk3::{
+    hash_path::path::{Component, Path},
+    prelude::{ExternResult, SerializedBytes, UnsafeBytes, WasmError},
+};
+
+use crate::entries::{
+    DayIndex, HourIndex, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex, YearIndex,
+};
+
+impl IndexIndex {
+    pub fn get_sb(self) -> ExternResult<SerializedBytes> {
+        Ok(self.try_into()?)
+    }
+}
+
+impl TryFrom<Path> for TimeIndex {
+    type Error = WasmError;
+
+    fn try_from(data: Path) -> ExternResult<TimeIndex> {
+        let path_comps: Vec<Component> = data.into();
+        let time_index = path_comps
+            .last()
+            .ok_or(WasmError::Zome(String::from(
+                "Cannot get TimeIndex from empty path",
+            )))?
+            .to_owned();
+        let time_index: Vec<u8> = time_index.into();
+        let time_index = TimeIndex::try_from(SerializedBytes::from(UnsafeBytes::from(time_index)))?;
+        Ok(time_index)
+    }
+}
 
 impl From<u32> for YearIndex {
     fn from(data: u32) -> Self {

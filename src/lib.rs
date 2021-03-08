@@ -73,15 +73,15 @@ use entries::TimeIndex;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EntryChunkIndex {
-    pub chunk: TimeIndex,
-    pub addresses: Vec<EntryHash>
+    pub time_frame: TimeIndex,
+    pub links: Links,
 }
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
 pub fn get_addresses_since(
     last_seen: DateTime<Utc>,
-    limit: Option<usize>,
+    _limit: Option<usize>,
     link_tag: Option<LinkTag>,
 ) -> ExternResult<Vec<EntryChunkIndex>> {
     let now = sys_time()?;
@@ -90,51 +90,66 @@ pub fn get_addresses_since(
         Utc,
     );
     let mut out: Vec<EntryChunkIndex> = vec![];
-    let chunks = TimeIndex::get_chunks_for_time_span(last_seen, now)?;
-    for chunk in chunks {
-        let links = chunk.get_links(link_tag.clone(), limit)?;
+    let indexes = TimeIndex::get_indexes_for_time_span(last_seen, now)?;
+    for index in indexes {
+        let links = get_links(index.hash()?, link_tag.clone())?;
         out.push(EntryChunkIndex {
-            chunk: chunk,
-            addresses: links
+            time_frame: TimeIndex::try_from(index)?,
+            links: links,
         })
-    };
+    }
     Ok(out)
 }
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
 /// at the current time index which will cover as much time as the current system time - MAX_CHUNK_INTERVAL
-pub fn get_current_addresses(index: String, link_tag: Option<LinkTag>, limit: Option<usize>) -> ExternResult<Option<EntryChunkIndex>> {
-    match TimeIndex::get_current_chunk(index)? {
-        Some(chunk) => {
-            let links = chunk.get_links(link_tag, limit)?;
+pub fn get_current_addresses(
+    index: String,
+    link_tag: Option<LinkTag>,
+    _limit: Option<usize>,
+) -> ExternResult<Option<EntryChunkIndex>> {
+    match TimeIndex::get_current_index(index)? {
+        Some(index) => {
+            let links = get_links(index.hash()?, link_tag)?;
             Ok(Some(EntryChunkIndex {
-                chunk: chunk,
-                addresses: links
+                time_frame: TimeIndex::try_from(index)?,
+                links: links,
             }))
-        },
-        None => Ok(None)
+        }
+        None => Ok(None),
     }
 }
 
-//TODO: this should return option
 /// Searches time index for most recent index and returns links from that index
 /// Guaranteed to return results if some index's have been made
-pub fn get_most_recent_indexes(index: String, link_tag: Option<LinkTag>, limit: Option<usize>) -> ExternResult<EntryChunkIndex> {
-    let recent_chunk = TimeIndex::get_latest_chunk(index)?;
-    let links = recent_chunk.get_links(link_tag, limit)?;
-    Ok(EntryChunkIndex {
-        chunk: recent_chunk,
-        addresses: links
-    })
+pub fn get_most_recent_indexes(
+    index: String,
+    link_tag: Option<LinkTag>,
+    _limit: Option<usize>,
+) -> ExternResult<Option<EntryChunkIndex>> {
+    let recent_index = TimeIndex::get_latest_index(index)?;
+    match recent_index {
+        Some(index) => {
+            let links = get_links(index.hash()?, link_tag)?;
+            Ok(Some(EntryChunkIndex {
+                time_frame: TimeIndex::try_from(index)?,
+                links: links,
+            }))
+        },
+        None => Ok(None),
+    }
 }
 
 /// Index a given entry. Uses ['IndexableEntry::entry_time()'] to get time it should be indexed under.
 /// Will create link from time path to entry with link_tag passed into fn
-pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(index: String, data: T, link_tag: LT) -> ExternResult<()> {
+pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
+    index: String,
+    data: T,
+    link_tag: LT,
+) -> ExternResult<()> {
     debug!("RECEIVED CALL MAKE CHUNK\n\n\n\n\n\n\n");
-    let chunk = TimeIndex::create_for_timestamp(index, data.entry_time())?;
-    debug!("GOT CHUNK: {:#?}", chunk);
-    chunk.add_link(data.hash()?, link_tag)?;
+    let index = TimeIndex::create_for_timestamp(index, data.entry_time())?;
+    create_link(index.hash()?, data.hash()?, link_tag)?;
     Ok(())
 }
 

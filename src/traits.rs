@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use hdk3::prelude::{ExternResult, EntryHash};
+use hdk3::prelude::{EntryHash, ExternResult};
 
 pub trait IndexableEntry {
     ///Time that entry type this trait is implemented on should be indexed under

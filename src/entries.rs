@@ -2,10 +2,12 @@ use std::time::Duration;
 
 use hdk3::prelude::*;
 
+//TODO: this dont actually need to be hdk_entry since they all use path so just need SerializedBytes
+
 #[hdk_entry(id = "time_chunk", visibility = "public")]
 #[serde(rename_all = "camelCase")]
 #[derive(Clone)]
-pub struct TimeChunk {
+pub struct TimeIndex {
     pub from: Duration,
     pub until: Duration,
 }
@@ -41,7 +43,7 @@ pub struct MinuteIndex(pub u32);
 pub struct SecondIndex(pub u32);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum TimeIndex {
+pub enum TimeIndexType {
     Year,
     Month,
     Day,

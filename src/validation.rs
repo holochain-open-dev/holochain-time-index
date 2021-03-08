@@ -1,9 +1,9 @@
 use hdk3::prelude::*;
 
-use crate::entries::TimeChunk;
+use crate::entries::TimeIndex;
 use crate::utils::{unwrap_chunk_interval_lock};
 
-impl TimeChunk {
+impl TimeIndex {
     pub fn validate_chunk(&self) -> ExternResult<()> {
         let max_chunk_interval = unwrap_chunk_interval_lock();
         //TODO: incorrect error type being used here

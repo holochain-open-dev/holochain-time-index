@@ -2,13 +2,13 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{
-    DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeChunk, TimeIndex, YearIndex,
+    DayIndex, HourIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex, TimeIndexType, YearIndex,
 };
 use crate::utils::{
     add_time_index_to_path, find_newest_time_path, get_time_path, unwrap_chunk_interval_lock, get_chunk_for_timestamp
 };
 
-impl TimeChunk {
+impl TimeIndex {
     /// Create a new chunk & link to time index
     pub(crate) fn create_chunk(&self, index: String) -> ExternResult<()> {
         //These validations are to help zome callers; but should also be present in validation rules
@@ -32,7 +32,7 @@ impl TimeChunk {
         let mut time_path = get_time_path(index, self.from)?;
         time_path.push(SerializedBytes::try_from(self)?.bytes().to_owned().into());
 
-        //Add time chunk entry to time tree and create
+        //Create time tree
         let time_path = Path::from(time_path);
         time_path.ensure()?;
         Ok(())
@@ -44,51 +44,50 @@ impl TimeChunk {
     }
 
     /// Reads current chunk and moves back N step intervals and tries to get that chunk
-    pub(crate) fn get_previous_chunk(&self, back_steps: u32) -> ExternResult<Option<TimeChunk>> {
-        let max_chunk_interval = unwrap_chunk_interval_lock();
-        let last_chunk = TimeChunk {
-            from: self.from - (max_chunk_interval * back_steps),
-            until: self.until - (max_chunk_interval * back_steps),
-        };
-        match get(last_chunk.hash()?, GetOptions::content())? {
-            Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                WasmError::Zome(String::from(
-                    "Could not deserialize link target into TimeChunk",
-                )),
-            )?)),
-            None => Ok(None),
-        }
-    }
+    // pub(crate) fn get_previous_chunk(&self, back_steps: u32) -> ExternResult<Option<TimeIndex>> {
+    //     let max_chunk_interval = unwrap_chunk_interval_lock();
+    //     let last_chunk = TimeIndex {
+    //         from: self.from - (max_chunk_interval * back_steps),
+    //         until: self.until - (max_chunk_interval * back_steps),
+    //     };
+    //     match get(last_chunk.hash()?, GetOptions::content())? {
+    //         Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
+    //             WasmError::Zome(String::from(
+    //                 "Could not deserialize link target into TimeIndex",
+    //             )),
+    //         )?)),
+    //         None => Ok(None),
+    //     }
+    // }
 
     /// Get current chunk using sys_time as source for time
-    pub fn get_current_chunk(index: String) -> ExternResult<Option<TimeChunk>> {
+    pub fn get_current_chunk(index: String) -> ExternResult<Option<TimeIndex>> {
         //Running with the asumption here that sys_time is always UTC
         let now = sys_time()?;
         let now = DateTime::<Utc>::from_utc(
             NaiveDateTime::from_timestamp(now.as_secs_f64() as i64, now.subsec_nanos()),
             Utc,
         );
+
         //Create current time path
-        //Note here do we want the option to specify the root of the index; i.e being able to create time index over different "anchor" points
         let mut time_path = vec![Component::from(index)];
-        add_time_index_to_path::<YearIndex>(&mut time_path, &now, TimeIndex::Year)?;
-        add_time_index_to_path::<MonthIndex>(&mut time_path, &now, TimeIndex::Month)?;
-        add_time_index_to_path::<DayIndex>(&mut time_path, &now, TimeIndex::Day)?;
-        add_time_index_to_path::<HourIndex>(&mut time_path, &now, TimeIndex::Hour)?;
-        add_time_index_to_path::<MinuteIndex>(&mut time_path, &now, TimeIndex::Minute)?;
-        add_time_index_to_path::<SecondIndex>(&mut time_path, &now, TimeIndex::Second)?;
+        add_time_index_to_path::<YearIndex>(&mut time_path, &now, TimeIndexType::Year)?;
+        add_time_index_to_path::<MonthIndex>(&mut time_path, &now, TimeIndexType::Month)?;
+        add_time_index_to_path::<DayIndex>(&mut time_path, &now, TimeIndexType::Day)?;
+        add_time_index_to_path::<HourIndex>(&mut time_path, &now, TimeIndexType::Hour)?;
+        add_time_index_to_path::<MinuteIndex>(&mut time_path, &now, TimeIndexType::Minute)?;
+        add_time_index_to_path::<SecondIndex>(&mut time_path, &now, TimeIndexType::Second)?;
         let time_path = Path::from(time_path);
 
         let chunks = get_links(time_path.hash()?, None)?;
         let mut latest_chunk = chunks.into_inner();
-        //TODO: this actually needs to read the chunk data vs just link timestamp
-        latest_chunk.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+        latest_chunk.sort_by(|a, b| a.tag.partial_cmp(&b.tag).unwrap());
 
         match latest_chunk.pop() {
             Some(link) => match get(link.target, GetOptions::content())? {
                 Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
                     WasmError::Zome(String::from(
-                        "Could not deserialize link target into TimeChunk",
+                        "Could not deserialize link target into TimeIndex",
                     )),
                 )?)),
                 None => Ok(None),
@@ -97,20 +96,21 @@ impl TimeChunk {
         }
     }
 
+    //TODO: this should return option
     /// Traverses time tree following latest time links until it finds the latest chunk
-    pub fn get_latest_chunk(index: String) -> ExternResult<TimeChunk> {
+    pub fn get_latest_chunk(index: String) -> ExternResult<TimeIndex> {
         let time_path = Path::from(vec![Component::from(index)]);
 
-        let time_path = find_newest_time_path::<YearIndex>(time_path, TimeIndex::Year)?;
-        let time_path = find_newest_time_path::<MonthIndex>(time_path, TimeIndex::Month)?;
-        let time_path = find_newest_time_path::<DayIndex>(time_path, TimeIndex::Day)?;
-        let time_path = find_newest_time_path::<HourIndex>(time_path, TimeIndex::Hour)?;
-        let time_path = find_newest_time_path::<MinuteIndex>(time_path, TimeIndex::Minute)?;
+        let time_path = find_newest_time_path::<YearIndex>(time_path, TimeIndexType::Year)?;
+        let time_path = find_newest_time_path::<MonthIndex>(time_path, TimeIndexType::Month)?;
+        let time_path = find_newest_time_path::<DayIndex>(time_path, TimeIndexType::Day)?;
+        let time_path = find_newest_time_path::<HourIndex>(time_path, TimeIndexType::Hour)?;
+        let time_path = find_newest_time_path::<MinuteIndex>(time_path, TimeIndexType::Minute)?;
 
         let chunks = get_links(time_path.hash()?, None)?;
         let mut latest_chunk = chunks.into_inner();
-        //TODO: this actually needs to read the chunk data vs just link timestamp
-        latest_chunk.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+        debug!("Got links on chunk: {:#?}", latest_chunk);
+        latest_chunk.sort_by(|a, b| a.tag.partial_cmp(&b.tag).unwrap());
 
         match latest_chunk.pop() {
             Some(link) => match get(link.target, GetOptions::content())? {
@@ -119,11 +119,11 @@ impl TimeChunk {
                         .entry()
                         .to_app_option()?
                         .ok_or(WasmError::Zome(String::from(
-                            "Could not deserialize link target into TimeChunk",
+                            "Could not deserialize link target into TimeIndex",
                         )))?)
                 }
                 None => Err(WasmError::Zome(String::from(
-                    "Could not deserialize link target into TimeChunk",
+                    "Could not deserialize link target into TimeIndex",
                 ))),
             },
             None => Err(WasmError::Zome(String::from(
@@ -136,7 +136,7 @@ impl TimeChunk {
     pub(crate) fn get_chunks_for_time_span(
         _from: DateTime<Utc>,
         _until: DateTime<Utc>,
-    ) -> ExternResult<Vec<TimeChunk>> {
+    ) -> ExternResult<Vec<TimeIndex>> {
         //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
         //If it is lower then no results will ever be returned
         //Next is to deduce how tree should be traversed and what time index level/path(s)
@@ -156,8 +156,9 @@ impl TimeChunk {
     }
 
     /// Takes a timestamp and creates a chunk that can be used for indexing at given timestamp
-    pub (crate) fn create_for_timestamp(index: String, time: DateTime<Utc>) -> ExternResult<TimeChunk> {
+    pub (crate) fn create_for_timestamp(index: String, time: DateTime<Utc>) -> ExternResult<TimeIndex> {
         let chunk = get_chunk_for_timestamp(time);
+        debug!("Attempting to create chunk: {:#?}", chunk);
         chunk.create_chunk(index)?;
         Ok(chunk)
     }

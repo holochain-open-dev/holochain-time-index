@@ -1,3 +1,4 @@
 /target
 Cargo.lock
 /tests/test_zome/tests/node_modules/*
+/tests/test_zome/target

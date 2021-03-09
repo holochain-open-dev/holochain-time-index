@@ -2,13 +2,15 @@
 
 use std::convert::{TryFrom, TryInto};
 
+use chrono::{NaiveDate, NaiveDateTime};
 use hdk3::{
     hash_path::path::{Component, Path},
     prelude::{ExternResult, SerializedBytes, UnsafeBytes, WasmError},
 };
 
 use crate::entries::{
-    DayIndex, HourIndex, Index, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, YearIndex,
+    DayIndex, HourIndex, Index, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, WrappedPath,
+    YearIndex,
 };
 
 impl IndexIndex {
@@ -31,6 +33,27 @@ impl TryFrom<Path> for Index {
         let time_index: Vec<u8> = time_index.into();
         let time_index = Index::try_from(SerializedBytes::from(UnsafeBytes::from(time_index)))?;
         Ok(time_index)
+    }
+}
+
+impl TryInto<NaiveDateTime> for WrappedPath {
+    type Error = WasmError;
+
+    fn try_into(self) -> Result<NaiveDateTime, Self::Error> {
+        let data = self.0;
+        let path_comps: Vec<Component> = data.into();
+        Ok(NaiveDate::from_ymd(
+            path_comps.get(1).ok_or(WasmError::Zome(String::from(
+                "Expected at least two elements to convert to DateTime",
+            )))?,
+            path_comps.get(2).unwrap_or(1),
+            path_comps.get(3).unwrap_or(1),
+        )
+        .and_hms(
+            path_comps.get(4).unwrap_or(1),
+            path_comps.get(5).unwrap_or(1),
+            path_comps.get(6).unwrap_or(1),
+        ))
     }
 }
 

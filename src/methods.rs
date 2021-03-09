@@ -8,28 +8,28 @@ use crate::entries::{
     YearIndex,
 };
 use crate::utils::{
-    add_time_index_to_path, find_newest_time_path, get_chunk_for_timestamp, get_time_path,
-    unwrap_chunk_interval_lock,
+    add_time_index_to_path, find_newest_time_path, get_index_for_timestamp, get_next_level_path,
+    get_time_path, unwrap_chunk_interval_lock,
 };
 
 impl Index {
     /// Create a new time index
-    pub(crate) fn create_index(&self, index: String) -> ExternResult<Path> {
+    pub(crate) fn new(&self, index: String) -> ExternResult<Path> {
         //These validations are to help zome callers; but should also be present in validation rules
         if self.from > sys_time()? {
             return Err(WasmError::Zome(String::from(
-                "Time chunk cannot start in the future",
+                "Time index cannot start in the future",
             )));
         };
         let max_chunk_interval = unwrap_chunk_interval_lock();
         if self.until - self.from != max_chunk_interval {
             return Err(WasmError::Zome(String::from(
-                "Time chunk should use period equal to max interval set by DNA",
+                "Time index should use period equal to max interval set by DNA",
             )));
         };
         if self.from.as_millis() % max_chunk_interval.as_millis() != 0 {
             return Err(WasmError::Zome(String::from(
-                "Time chunk does not follow chunk interval ordering",
+                "Time index does not follow index interval ordering",
             )));
         };
 
@@ -103,9 +103,9 @@ impl Index {
 
     /// Traverses time tree following latest time links until it finds the latest index
     pub fn get_latest_index(index: String) -> ExternResult<Option<Path>> {
-        let time_path = Path::from(vec![Component::try_from(
+        let time_path = Path::from(vec![Component::from(
             IndexIndex(index).get_sb()?.bytes().to_owned(),
-        )?]);
+        )]);
 
         let time_path = find_newest_time_path::<YearIndex>(time_path, IndexType::Year)?;
         let time_path = find_newest_time_path::<MonthIndex>(time_path, IndexType::Month)?;
@@ -138,21 +138,26 @@ impl Index {
 
     /// Get all chunks that exist for some time period between from -> until
     pub(crate) fn get_indexes_for_time_span(
-        _from: DateTime<Utc>,
-        _until: DateTime<Utc>,
+        from: DateTime<Utc>,
+        until: DateTime<Utc>,
+        index: String,
     ) -> ExternResult<Vec<Path>> {
-        //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
-        //If it is lower then no results will ever be returned
-        //Next is to deduce how tree should be traversed and what time index level/path(s)
-        //to be used to find chunks
+        let paths = Path::from(vec![Component::from(
+            IndexIndex(index).get_sb()?.bytes().to_owned(),
+        )]);
+        let paths = get_next_level_path(vec![paths], &from, &until, IndexType::Year)?;
+        let paths = get_next_level_path(paths, &from, &until, IndexType::Month)?;
+        let paths = get_next_level_path(paths, &from, &until, IndexType::Day)?;
+        let paths = get_next_level_path(paths, &from, &until, IndexType::Hour)?;
+        let paths = get_next_level_path(paths, &from, &until, IndexType::Minute)?;
+
         Ok(vec![])
     }
 
     /// Takes a timestamp and creates an index path
     pub(crate) fn create_for_timestamp(index: String, time: DateTime<Utc>) -> ExternResult<Path> {
-        let chunk = get_chunk_for_timestamp(time);
-        debug!("Attempting to create chunk: {:#?}", chunk);
-        let path = chunk.create_index(index)?;
+        let time_index = get_index_for_timestamp(time);
+        let path = time_index.new(index)?;
         Ok(path)
     }
 }

@@ -4,8 +4,8 @@ use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{
-    DayIndex, HourIndex, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex,
-    TimeIndexType, YearIndex,
+    DayIndex, HourIndex, Index, IndexIndex, IndexType, MinuteIndex, MonthIndex, SecondIndex,
+    YearIndex,
 };
 use crate::{MAX_CHUNK_INTERVAL, TIME_INDEX_DEPTH};
 
@@ -38,13 +38,13 @@ pub(crate) fn find_newest_time_path<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + Into<u32>,
 >(
     path: Path,
-    time_index: TimeIndexType,
+    time_index: IndexType,
 ) -> ExternResult<Path> {
     match time_index {
-        TimeIndexType::Year => (),
-        TimeIndexType::Month => (),
-        TimeIndexType::Day => (),
-        TimeIndexType::Hour => {
+        IndexType::Year => (),
+        IndexType::Month => (),
+        IndexType::Day => (),
+        IndexType::Hour => {
             let time_index_depth = unwrap_time_index_depth();
             if time_index_depth.contains(&time_index) {
                 ()
@@ -52,7 +52,7 @@ pub(crate) fn find_newest_time_path<
                 return Ok(path);
             }
         }
-        TimeIndexType::Minute => {
+        IndexType::Minute => {
             let time_index_depth = unwrap_time_index_depth();
             if time_index_depth.contains(&time_index) {
                 ()
@@ -60,7 +60,7 @@ pub(crate) fn find_newest_time_path<
                 return Ok(path);
             }
         }
-        TimeIndexType::Second => {
+        IndexType::Second => {
             let time_index_depth = unwrap_time_index_depth();
             if time_index_depth.contains(&time_index) {
                 ()
@@ -69,7 +69,7 @@ pub(crate) fn find_newest_time_path<
             }
         }
     };
-    debug!("Finding links on TimeIndexType: {:#?}\n\n", time_index);
+    debug!("Finding links on IndexType: {:#?}\n\n", time_index);
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
     let mut links = get_path_links_on_path(&path)?;
     if links.len() == 0 {
@@ -102,13 +102,13 @@ pub(crate) fn add_time_index_to_path<
 >(
     time_path: &mut Vec<Component>,
     from_timestamp: &DateTime<Utc>,
-    time_index: TimeIndexType,
+    time_index: IndexType,
 ) -> ExternResult<()> {
     let from_time = match time_index {
-        TimeIndexType::Year => from_timestamp.year() as u32,
-        TimeIndexType::Month => from_timestamp.month(),
-        TimeIndexType::Day => from_timestamp.day(),
-        TimeIndexType::Hour => {
+        IndexType::Year => from_timestamp.year() as u32,
+        IndexType::Month => from_timestamp.month(),
+        IndexType::Day => from_timestamp.day(),
+        IndexType::Hour => {
             let time_index_depth = unwrap_time_index_depth();
             if time_index_depth.contains(&time_index) {
                 from_timestamp.hour()
@@ -116,7 +116,7 @@ pub(crate) fn add_time_index_to_path<
                 return Ok(());
             }
         }
-        TimeIndexType::Minute => {
+        IndexType::Minute => {
             let time_index_depth = unwrap_time_index_depth();
             if time_index_depth.contains(&time_index) {
                 from_timestamp.minute()
@@ -124,7 +124,7 @@ pub(crate) fn add_time_index_to_path<
                 return Ok(());
             }
         }
-        TimeIndexType::Second => {
+        IndexType::Second => {
             let time_index_depth = unwrap_time_index_depth();
             if time_index_depth.contains(&time_index) {
                 from_timestamp.second()
@@ -152,29 +152,27 @@ pub(crate) fn get_time_path(
     let mut time_path = vec![Component::from(
         IndexIndex(index).get_sb()?.bytes().to_owned(),
     )];
-    add_time_index_to_path::<YearIndex>(&mut time_path, &from_timestamp, TimeIndexType::Year)?;
-    add_time_index_to_path::<MonthIndex>(&mut time_path, &from_timestamp, TimeIndexType::Month)?;
-    add_time_index_to_path::<DayIndex>(&mut time_path, &from_timestamp, TimeIndexType::Day)?;
-    add_time_index_to_path::<HourIndex>(&mut time_path, &from_timestamp, TimeIndexType::Hour)?;
-    add_time_index_to_path::<MinuteIndex>(&mut time_path, &from_timestamp, TimeIndexType::Minute)?;
-    add_time_index_to_path::<SecondIndex>(&mut time_path, &from_timestamp, TimeIndexType::Second)?;
+    add_time_index_to_path::<YearIndex>(&mut time_path, &from_timestamp, IndexType::Year)?;
+    add_time_index_to_path::<MonthIndex>(&mut time_path, &from_timestamp, IndexType::Month)?;
+    add_time_index_to_path::<DayIndex>(&mut time_path, &from_timestamp, IndexType::Day)?;
+    add_time_index_to_path::<HourIndex>(&mut time_path, &from_timestamp, IndexType::Hour)?;
+    add_time_index_to_path::<MinuteIndex>(&mut time_path, &from_timestamp, IndexType::Minute)?;
+    add_time_index_to_path::<SecondIndex>(&mut time_path, &from_timestamp, IndexType::Second)?;
 
     Ok(time_path)
 }
 
-pub(crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> TimeIndex {
-    debug!("get chunk for ts");
+pub(crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> Index {
     let now = std::time::Duration::new(time.timestamp() as u64, time.timestamp_subsec_nanos());
-    debug!("Now: {:#?}", now);
     let time_frame = unwrap_chunk_interval_lock();
-    debug!("got time frame: {:#?}", time_frame);
+
     let chunk_index_start = (now.as_nanos() as f64 / time_frame.as_nanos() as f64).floor() as u64;
     let chunk_start = time_frame.as_nanos() as u64 * chunk_index_start;
     let chunk_end = time_frame.as_nanos() as u64 * (chunk_index_start + 1_u64);
 
     let chunk_start = std::time::Duration::from_nanos(chunk_start);
     let chunk_end = std::time::Duration::from_nanos(chunk_end);
-    TimeIndex {
+    Index {
         from: chunk_start,
         until: chunk_end,
     }
@@ -186,7 +184,7 @@ pub(crate) fn unwrap_chunk_interval_lock() -> Duration {
         .expect("Could not read from MAX_CHUNK_INTERVAL")
 }
 
-pub(crate) fn unwrap_time_index_depth() -> Vec<TimeIndexType> {
+pub(crate) fn unwrap_time_index_depth() -> Vec<IndexType> {
     TIME_INDEX_DEPTH
         .read()
         .expect("Could not read from TIME_INDEX_DEPTH")
@@ -209,5 +207,19 @@ mod util_tests {
         let chunk = get_chunk_for_timestamp(chrono::Utc::now());
         assert_eq!(chunk.from.as_secs() % interval, 0);
         assert_eq!(chunk.until.as_secs() % interval, 0);
+    }
+
+    #[test]
+    fn translate_sort() {
+        let str_nums = vec!["2", "1"];
+        let nums = str_nums
+            .clone()
+            .into_iter()
+            .map(|val| val.parse::<i32>().unwrap())
+            .collect::<Vec<i32>>();
+
+        let permutation = permutation::sort(&nums[..]);
+        let ordered_nums = permutation.apply_slice(&str_nums[..]);
+        println!("{:#?}", ordered_nums);
     }
 }

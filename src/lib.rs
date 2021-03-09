@@ -49,7 +49,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use std::sync::RwLock;
 use std::time::Duration;
 
@@ -70,6 +70,7 @@ mod traits;
 pub use traits::IndexableEntry;
 
 use entries::{Index, IndexType};
+use utils::unwrap_chunk_interval_lock;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EntryChunkIndex {
@@ -79,18 +80,24 @@ pub struct EntryChunkIndex {
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
-pub fn get_addresses_since(
-    last_seen: DateTime<Utc>,
+/// TODO: would be cool to support DFS and BFS here
+pub fn get_addresses_between(
+    index: String,
+    from: DateTime<Utc>,
+    until: DateTime<Utc>,
     _limit: Option<usize>,
     link_tag: Option<LinkTag>,
 ) -> ExternResult<Vec<EntryChunkIndex>> {
-    let now = sys_time()?;
-    let now = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(now.as_secs_f64() as i64, now.subsec_nanos()),
-        Utc,
-    );
+    let max_chunk_interval = unwrap_chunk_interval_lock();
+    //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
+    if until.timestamp_millis() - from.timestamp_millis() > max_chunk_interval.as_millis() as i64 {
+        return Err(WasmError::Zome(String::from(
+            "Time frame is smaller than index interval",
+        )));
+    };
+
     let mut out: Vec<EntryChunkIndex> = vec![];
-    let indexes = Index::get_indexes_for_time_span(last_seen, now)?;
+    let indexes = Index::get_indexes_for_time_span(from, until, index)?;
     for index in indexes {
         let links = get_links(index.hash()?, link_tag.clone())?;
         out.push(EntryChunkIndex {
@@ -152,15 +159,6 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
     create_link(index.hash()?, data.hash()?, link_tag)?;
     Ok(())
 }
-
-// /// Set spam protection/DHT hotspot rules. Spam limit determines how many max links a given agent can
-// /// create on a time index
-// pub (crate) fn set_index_limit(spam_limit: usize) {
-//     let mut w = ENFORCE_SPAM_LIMIT
-//         .write()
-//         .expect("Could not set ENFORCE_SPAM_LIMIT");
-//     *w = spam_limit;
-// }
 
 // Configuration
 // TODO: using rwlock and setter functions does not work in HC since each zome call fn is sandboxed and not a long running bin

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, Timelike, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{
@@ -14,20 +14,7 @@ pub(crate) fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
         .children()?
         .into_inner()
         .into_iter()
-        .map(|link| get(link.target, GetOptions::content()))
-        .collect::<ExternResult<Vec<Option<Element>>>>()?
-        .into_iter()
-        .filter(|link| link.is_some())
-        .map(|val| {
-            let val = val.unwrap();
-            let val: Path = val
-                .entry()
-                .to_app_option()?
-                .ok_or(WasmError::Zome(String::from(
-                    "Could not deserialize link target into time Path",
-                )))?;
-            Ok(val)
-        })
+        .map(|link| Ok(Path::try_from(&link.tag)?))
         .collect::<ExternResult<Vec<Path>>>()?;
     Ok(links)
 }
@@ -162,7 +149,7 @@ pub(crate) fn get_time_path(
     Ok(time_path)
 }
 
-pub(crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> Index {
+pub(crate) fn get_index_for_timestamp(time: DateTime<Utc>) -> Index {
     let now = std::time::Duration::new(time.timestamp() as u64, time.timestamp_subsec_nanos());
     let time_frame = unwrap_chunk_interval_lock();
 
@@ -178,6 +165,114 @@ pub(crate) fn get_chunk_for_timestamp(time: DateTime<Utc>) -> Index {
     }
 }
 
+pub(crate) fn get_next_level_path(
+    paths: Vec<Path>,
+    from: &DateTime<Utc>,
+    until: &DateTime<Utc>,
+    time_index: IndexType,
+) -> ExternResult<Vec<Path>> {
+    let (from_time, until_time) = match time_index {
+        IndexType::Year => (
+            NaiveDate::from_yo(from.year(), 1).and_hms(1, 1, 1),
+            NaiveDate::from_yo(until.year(), 1).and_hms(1, 1, 1),
+        ),
+        IndexType::Month => (
+            NaiveDate::from_yo(from.year(), from.day()).and_hms(1, 1, 1),
+            NaiveDate::from_yo(until.year(), until.day()).and_hms(1, 1, 1),
+        ),
+        IndexType::Day => (
+            NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(1, 1, 1),
+        ),
+        IndexType::Hour => {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
+                (
+                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                        from.hour(),
+                        1,
+                        1,
+                    ),
+                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                        until.hour(),
+                        1,
+                        1,
+                    ),
+                )
+            } else {
+                return Ok(paths);
+            }
+        }
+        IndexType::Minute => {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
+                (
+                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                        from.hour(),
+                        from.minute(),
+                        1,
+                    ),
+                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                        until.hour(),
+                        until.minute(),
+                        1,
+                    ),
+                )
+            } else {
+                return Ok(paths);
+            }
+        }
+        IndexType::Second => {
+            let time_index_depth = unwrap_time_index_depth();
+            if time_index_depth.contains(&time_index) {
+                (
+                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                        from.hour(),
+                        from.minute(),
+                        from.second(),
+                    ),
+                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                        until.hour(),
+                        until.minute(),
+                        until.second(),
+                    ),
+                )
+            } else {
+                return Ok(paths);
+            }
+        }
+    };
+
+    let mut out = vec![];
+    for path in paths {
+        let mut lower_paths: Vec<Path> = path
+            .children()?
+            .into_inner()
+            .into_iter()
+            .map(|link| Ok(Path::try_from(&link.tag)?))
+            .filter_map(|path| {
+                if path.is_ok() {
+                    let path = WrappedPath(path.unwrap());
+                    let chrono_path: ExternResult<NaiveDateTime> = path.try_into();
+                    if chrono_path.is_err() {
+                        return Some(Err(chrono_path.err().unwrap()));
+                    };
+                    let chrono_path = chrono_path.unwrap();
+                    if chrono_path >= from_time && chrono_path <= until_time {
+                        Some(Ok(path))
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(Err(path.err().unwrap()))
+                }
+            })
+            .collect::<ExternResult<Vec<Path>>>()?;
+        out.append(&mut lower_paths);
+    }
+    Ok(out)
+}
+
 pub(crate) fn unwrap_chunk_interval_lock() -> Duration {
     *MAX_CHUNK_INTERVAL
         .read()
@@ -191,20 +286,14 @@ pub(crate) fn unwrap_time_index_depth() -> Vec<IndexType> {
         .clone()
 }
 
-// pub(crate) fn unwrap_spam_limit() -> usize {
-//     *ENFORCE_SPAM_LIMIT
-//         .read()
-//         .expect("Could not read from ENFORCE_SPAM_LIMIT")
-// }
-
 mod util_tests {
     #[test]
     fn test_get_chunk_time() {
-        use crate::utils::get_chunk_for_timestamp;
+        use crate::utils::get_index_for_timestamp;
 
         //Hard coded interval
         let interval = 10;
-        let chunk = get_chunk_for_timestamp(chrono::Utc::now());
+        let chunk = get_index_for_timestamp(chrono::Utc::now());
         assert_eq!(chunk.from.as_secs() % interval, 0);
         assert_eq!(chunk.until.as_secs() % interval, 0);
     }
@@ -220,6 +309,6 @@ mod util_tests {
 
         let permutation = permutation::sort(&nums[..]);
         let ordered_nums = permutation.apply_slice(&str_nums[..]);
-        println!("{:#?}", ordered_nums);
+        assert_eq!(ordered_nums, vec!["1", "2"]);
     }
 }

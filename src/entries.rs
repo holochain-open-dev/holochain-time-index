@@ -29,6 +29,9 @@ pub struct MinuteIndex(pub u32);
 #[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize)]
 pub struct SecondIndex(pub u32);
 
+/// Wrapper around hdk path that allows us to make our own impls
+pub struct WrappedPath(pub Path);
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum IndexType {
     Year,

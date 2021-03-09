@@ -8,7 +8,7 @@ use hdk3::{
 };
 
 use crate::entries::{
-    DayIndex, HourIndex, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex, YearIndex,
+    DayIndex, HourIndex, Index, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, YearIndex,
 };
 
 impl IndexIndex {
@@ -17,19 +17,19 @@ impl IndexIndex {
     }
 }
 
-impl TryFrom<Path> for TimeIndex {
+impl TryFrom<Path> for Index {
     type Error = WasmError;
 
-    fn try_from(data: Path) -> ExternResult<TimeIndex> {
+    fn try_from(data: Path) -> ExternResult<Index> {
         let path_comps: Vec<Component> = data.into();
         let time_index = path_comps
             .last()
             .ok_or(WasmError::Zome(String::from(
-                "Cannot get TimeIndex from empty path",
+                "Cannot get Index from empty path",
             )))?
             .to_owned();
         let time_index: Vec<u8> = time_index.into();
-        let time_index = TimeIndex::try_from(SerializedBytes::from(UnsafeBytes::from(time_index)))?;
+        let time_index = Index::try_from(SerializedBytes::from(UnsafeBytes::from(time_index)))?;
         Ok(time_index)
     }
 }

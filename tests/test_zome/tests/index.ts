@@ -57,9 +57,15 @@ orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
 
   //Index entry
   let index = await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: new Date().toISOString()})
+
+  var dateOffset = 10000; //10 seconds
+  var date = new Date();
+  date.setTime(date.getTime() - dateOffset);
+  await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: date.toISOString()})
   
   let get_index = await alice_happ.cells[0].call("time_index", "get_most_recent_indexes", {index: "test_index"})
-  console.log("Get index", get_index);
+  console.log("Got index", get_index);
+  t.deepEqual(get_index.links.length, 2);
 })
 
 // Run all registered scenarios as a final step, and gather the report,

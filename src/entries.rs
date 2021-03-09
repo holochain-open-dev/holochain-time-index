@@ -2,11 +2,14 @@ use std::time::Duration;
 
 use hdk3::prelude::*;
 
-#[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize)]
-pub struct TimeIndex {
+#[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Ord, Eq)]
+pub struct Index {
     pub from: Duration,
     pub until: Duration,
 }
+
+#[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize)]
+pub struct IndexIndex(pub String);
 
 #[derive(Clone, Eq, PartialEq, SerializedBytes, Debug, Serialize, Deserialize)]
 pub struct YearIndex(pub u32);
@@ -26,11 +29,8 @@ pub struct MinuteIndex(pub u32);
 #[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize)]
 pub struct SecondIndex(pub u32);
 
-#[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize)]
-pub struct IndexIndex(pub String);
-
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum TimeIndexType {
+pub enum IndexType {
     Year,
     Month,
     Day,

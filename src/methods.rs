@@ -1,16 +1,18 @@
+use std::time::Duration;
+
 use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{
-    DayIndex, HourIndex, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, TimeIndex,
-    TimeIndexType, YearIndex,
+    DayIndex, HourIndex, Index, IndexIndex, IndexType, MinuteIndex, MonthIndex, SecondIndex,
+    YearIndex,
 };
 use crate::utils::{
     add_time_index_to_path, find_newest_time_path, get_chunk_for_timestamp, get_time_path,
     unwrap_chunk_interval_lock,
 };
 
-impl TimeIndex {
+impl Index {
     /// Create a new time index
     pub(crate) fn create_index(&self, index: String) -> ExternResult<Path> {
         //These validations are to help zome callers; but should also be present in validation rules
@@ -41,16 +43,16 @@ impl TimeIndex {
     }
 
     /// Reads current chunk and moves back N step intervals and tries to get that chunk
-    // pub(crate) fn get_previous_chunk(&self, back_steps: u32) -> ExternResult<Option<TimeIndex>> {
+    // pub(crate) fn get_previous_chunk(&self, back_steps: u32) -> ExternResult<Option<Index>> {
     //     let max_chunk_interval = unwrap_chunk_interval_lock();
-    //     let last_chunk = TimeIndex {
+    //     let last_chunk = Index {
     //         from: self.from - (max_chunk_interval * back_steps),
     //         until: self.until - (max_chunk_interval * back_steps),
     //     };
     //     match get(last_chunk.hash()?, GetOptions::content())? {
     //         Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
     //             WasmError::Zome(String::from(
-    //                 "Could not deserialize link target into TimeIndex",
+    //                 "Could not deserialize link target into Index",
     //             )),
     //         )?)),
     //         None => Ok(None),
@@ -70,24 +72,28 @@ impl TimeIndex {
         let mut time_path = vec![Component::try_from(
             IndexIndex(index).get_sb()?.bytes().to_owned(),
         )?];
-        add_time_index_to_path::<YearIndex>(&mut time_path, &now, TimeIndexType::Year)?;
-        add_time_index_to_path::<MonthIndex>(&mut time_path, &now, TimeIndexType::Month)?;
-        add_time_index_to_path::<DayIndex>(&mut time_path, &now, TimeIndexType::Day)?;
-        add_time_index_to_path::<HourIndex>(&mut time_path, &now, TimeIndexType::Hour)?;
-        add_time_index_to_path::<MinuteIndex>(&mut time_path, &now, TimeIndexType::Minute)?;
-        add_time_index_to_path::<SecondIndex>(&mut time_path, &now, TimeIndexType::Second)?;
+        add_time_index_to_path::<YearIndex>(&mut time_path, &now, IndexType::Year)?;
+        add_time_index_to_path::<MonthIndex>(&mut time_path, &now, IndexType::Month)?;
+        add_time_index_to_path::<DayIndex>(&mut time_path, &now, IndexType::Day)?;
+        add_time_index_to_path::<HourIndex>(&mut time_path, &now, IndexType::Hour)?;
+        add_time_index_to_path::<MinuteIndex>(&mut time_path, &now, IndexType::Minute)?;
+        add_time_index_to_path::<SecondIndex>(&mut time_path, &now, IndexType::Second)?;
         let time_path = Path::from(time_path);
 
-        let mut latest_chunk = time_path.children()?.into_inner();
-        debug!("Got links on chunk: {:#?}", latest_chunk);
-        latest_chunk.sort_by(|a, b| a.tag.partial_cmp(&b.tag).unwrap());
+        let indexes = time_path.children()?.into_inner();
+        let ser_path = indexes
+            .clone()
+            .into_iter()
+            .map(|link| Ok(Index::try_from(Path::try_from(&link.tag)?)?.from))
+            .collect::<ExternResult<Vec<Duration>>>()?;
+        let permutation = permutation::sort_by(&ser_path[..], |a, b| a.partial_cmp(&b).unwrap());
+        let mut ordered_indexes = permutation.apply_slice(&indexes[..]);
+        ordered_indexes.reverse();
 
-        match latest_chunk.pop() {
+        match ordered_indexes.pop() {
             Some(link) => match get(link.target, GetOptions::content())? {
                 Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                    WasmError::Zome(String::from(
-                        "Could not deserialize link target into TimeIndex",
-                    )),
+                    WasmError::Zome(String::from("Could not deserialize link target into Index")),
                 )?)),
                 None => Ok(None),
             },
@@ -101,25 +107,29 @@ impl TimeIndex {
             IndexIndex(index).get_sb()?.bytes().to_owned(),
         )?]);
 
-        let time_path = find_newest_time_path::<YearIndex>(time_path, TimeIndexType::Year)?;
-        let time_path = find_newest_time_path::<MonthIndex>(time_path, TimeIndexType::Month)?;
-        let time_path = find_newest_time_path::<DayIndex>(time_path, TimeIndexType::Day)?;
-        let time_path = find_newest_time_path::<HourIndex>(time_path, TimeIndexType::Hour)?;
-        let time_path = find_newest_time_path::<MinuteIndex>(time_path, TimeIndexType::Minute)?;
+        let time_path = find_newest_time_path::<YearIndex>(time_path, IndexType::Year)?;
+        let time_path = find_newest_time_path::<MonthIndex>(time_path, IndexType::Month)?;
+        let time_path = find_newest_time_path::<DayIndex>(time_path, IndexType::Day)?;
+        let time_path = find_newest_time_path::<HourIndex>(time_path, IndexType::Hour)?;
+        let time_path = find_newest_time_path::<MinuteIndex>(time_path, IndexType::Minute)?;
 
-        let mut latest_chunk = time_path.children()?.into_inner();
-        debug!("Got links on chunk: {:#?}", latest_chunk);
-        latest_chunk.sort_by(|a, b| a.tag.partial_cmp(&b.tag).unwrap());
+        let indexes = time_path.children()?.into_inner();
+        let ser_path = indexes
+            .clone()
+            .into_iter()
+            .map(|link| Ok(Index::try_from(Path::try_from(&link.tag)?)?.from))
+            .collect::<ExternResult<Vec<Duration>>>()?;
+        let permutation = permutation::sort_by(&ser_path[..], |a, b| a.partial_cmp(&b).unwrap());
+        let mut ordered_indexes: Vec<Link> = permutation.apply_slice(&indexes[..]);
+        ordered_indexes.reverse();
 
-        match latest_chunk.pop() {
+        match ordered_indexes.pop() {
             Some(link) => match get(link.target, GetOptions::content())? {
                 Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                    WasmError::Zome(String::from(
-                        "Could not deserialize link target into TimeIndex",
-                    )),
+                    WasmError::Zome(String::from("Could not deserialize link target into Index")),
                 )?)),
                 None => Err(WasmError::Zome(String::from(
-                    "Could not deserialize link target into TimeIndex",
+                    "Could not deserialize link target into Index",
                 ))),
             },
             None => Ok(None),

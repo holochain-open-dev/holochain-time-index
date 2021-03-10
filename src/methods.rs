@@ -142,7 +142,7 @@ impl Index {
         index: String,
         link_tag: Option<LinkTag>,
     ) -> ExternResult<Vec<EntryChunkIndex>> {
-        //TODO: this is actually super overkill; we dont need to search each part of the time path but instead can derive 
+        //TODO: this is actually super overkill; we dont need to search each part of the time path but instead can derive
         //path from input where from & until are the same and then only make searches for datetime section where from & until diverge
         let paths = Path::from(vec![Component::from(
             IndexIndex(index).get_sb()?.bytes().to_owned(),

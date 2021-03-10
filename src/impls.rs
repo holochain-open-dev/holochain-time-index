@@ -8,10 +8,7 @@ use hdk3::{
     prelude::{ExternResult, SerializedBytes, UnsafeBytes, WasmError},
 };
 
-use crate::entries::{
-    DayIndex, HourIndex, Index, IndexIndex, MinuteIndex, MonthIndex, SecondIndex, WrappedPath,
-    YearIndex,
-};
+use crate::entries::{Index, IndexIndex, TimeIndex, WrappedPath};
 
 impl IndexIndex {
     pub fn get_sb(self) -> ExternResult<SerializedBytes> {
@@ -36,6 +33,23 @@ impl TryFrom<Path> for Index {
     }
 }
 
+impl TimeIndex {
+    pub fn get_sb(self) -> ExternResult<SerializedBytes> {
+        Ok(self.try_into()?)
+    }
+}
+
+impl TryFrom<Component> for TimeIndex {
+    type Error = WasmError;
+
+    fn try_from(data: Component) -> Result<Self, Self::Error> {
+        let time_index: Vec<u8> = data.into();
+        Ok(TimeIndex::try_from(SerializedBytes::from(
+            UnsafeBytes::from(time_index),
+        ))?)
+    }
+}
+
 impl TryInto<NaiveDateTime> for WrappedPath {
     type Error = WasmError;
 
@@ -43,87 +57,73 @@ impl TryInto<NaiveDateTime> for WrappedPath {
         let data = self.0;
         let path_comps: Vec<Component> = data.into();
         Ok(NaiveDate::from_ymd(
-            path_comps.get(1).ok_or(WasmError::Zome(String::from(
-                "Expected at least two elements to convert to DateTime",
-            )))?,
-            path_comps.get(2).unwrap_or(1),
-            path_comps.get(3).unwrap_or(1),
+            TimeIndex::try_from(
+                path_comps
+                    .get(1)
+                    .ok_or(WasmError::Zome(String::from(
+                        "Expected at least two elements to convert to DateTime",
+                    )))?
+                    .to_owned(),
+            )?
+            .0 as i32,
+            TimeIndex::try_from(
+                path_comps
+                    .get(2)
+                    .unwrap_or(&Component::from(
+                        SerializedBytes::try_from(TimeIndex(1))?.bytes().to_owned(),
+                    ))
+                    .to_owned(),
+            )?
+            .0,
+            TimeIndex::try_from(
+                path_comps
+                    .get(3)
+                    .unwrap_or(&Component::from(
+                        SerializedBytes::try_from(TimeIndex(1))?.bytes().to_owned(),
+                    ))
+                    .to_owned(),
+            )?
+            .0,
         )
         .and_hms(
-            path_comps.get(4).unwrap_or(1),
-            path_comps.get(5).unwrap_or(1),
-            path_comps.get(6).unwrap_or(1),
+            TimeIndex::try_from(
+                path_comps
+                    .get(4)
+                    .unwrap_or(&Component::from(
+                        SerializedBytes::try_from(TimeIndex(1))?.bytes().to_owned(),
+                    ))
+                    .to_owned(),
+            )?
+            .0,
+            TimeIndex::try_from(
+                path_comps
+                    .get(5)
+                    .unwrap_or(&Component::from(
+                        SerializedBytes::try_from(TimeIndex(1))?.bytes().to_owned(),
+                    ))
+                    .to_owned(),
+            )?
+            .0,
+            TimeIndex::try_from(
+                path_comps
+                    .get(6)
+                    .unwrap_or(&Component::from(
+                        SerializedBytes::try_from(TimeIndex(1))?.bytes().to_owned(),
+                    ))
+                    .to_owned(),
+            )?
+            .0,
         ))
     }
 }
 
-impl From<u32> for YearIndex {
+impl From<u32> for TimeIndex {
     fn from(data: u32) -> Self {
-        YearIndex(data)
+        TimeIndex(data)
     }
 }
 
-impl Into<u32> for YearIndex {
-    fn into(self) -> u32 {
-        self.0
-    }
-}
-
-impl From<u32> for MonthIndex {
-    fn from(data: u32) -> Self {
-        MonthIndex(data)
-    }
-}
-
-impl Into<u32> for MonthIndex {
-    fn into(self) -> u32 {
-        self.0
-    }
-}
-
-impl From<u32> for DayIndex {
-    fn from(data: u32) -> Self {
-        DayIndex(data)
-    }
-}
-
-impl Into<u32> for DayIndex {
-    fn into(self) -> u32 {
-        self.0
-    }
-}
-
-impl From<u32> for HourIndex {
-    fn from(data: u32) -> Self {
-        HourIndex(data)
-    }
-}
-
-impl Into<u32> for HourIndex {
-    fn into(self) -> u32 {
-        self.0
-    }
-}
-
-impl From<u32> for MinuteIndex {
-    fn from(data: u32) -> Self {
-        MinuteIndex(data)
-    }
-}
-
-impl Into<u32> for MinuteIndex {
-    fn into(self) -> u32 {
-        self.0
-    }
-}
-
-impl From<u32> for SecondIndex {
-    fn from(data: u32) -> Self {
-        SecondIndex(data)
-    }
-}
-
-impl Into<u32> for SecondIndex {
+impl Into<u32> for TimeIndex {
     fn into(self) -> u32 {
         self.0
     }

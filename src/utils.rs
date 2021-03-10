@@ -3,10 +3,7 @@ use std::time::Duration;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, Timelike, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
-use crate::entries::{
-    DayIndex, HourIndex, Index, IndexIndex, IndexType, MinuteIndex, MonthIndex, SecondIndex,
-    YearIndex,
-};
+use crate::entries::{Index, IndexIndex, IndexType, TimeIndex, WrappedPath};
 use crate::{MAX_CHUNK_INTERVAL, TIME_INDEX_DEPTH};
 
 pub(crate) fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
@@ -139,12 +136,12 @@ pub(crate) fn get_time_path(
     let mut time_path = vec![Component::from(
         IndexIndex(index).get_sb()?.bytes().to_owned(),
     )];
-    add_time_index_to_path::<YearIndex>(&mut time_path, &from_timestamp, IndexType::Year)?;
-    add_time_index_to_path::<MonthIndex>(&mut time_path, &from_timestamp, IndexType::Month)?;
-    add_time_index_to_path::<DayIndex>(&mut time_path, &from_timestamp, IndexType::Day)?;
-    add_time_index_to_path::<HourIndex>(&mut time_path, &from_timestamp, IndexType::Hour)?;
-    add_time_index_to_path::<MinuteIndex>(&mut time_path, &from_timestamp, IndexType::Minute)?;
-    add_time_index_to_path::<SecondIndex>(&mut time_path, &from_timestamp, IndexType::Second)?;
+    add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Year)?;
+    add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Month)?;
+    add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Day)?;
+    add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Hour)?;
+    add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Minute)?;
+    add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Second)?;
 
     Ok(time_path)
 }
@@ -173,12 +170,12 @@ pub(crate) fn get_next_level_path(
 ) -> ExternResult<Vec<Path>> {
     let (from_time, until_time) = match time_index {
         IndexType::Year => (
-            NaiveDate::from_yo(from.year(), 1).and_hms(1, 1, 1),
-            NaiveDate::from_yo(until.year(), 1).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(from.year(), 1, 1).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(until.year(), 1, 1).and_hms(1, 1, 1),
         ),
         IndexType::Month => (
-            NaiveDate::from_yo(from.year(), from.day()).and_hms(1, 1, 1),
-            NaiveDate::from_yo(until.year(), until.day()).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(from.year(), from.month(), 1).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(until.year(), until.month(), 1).and_hms(1, 1, 1),
         ),
         IndexType::Day => (
             NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(1, 1, 1),
@@ -251,13 +248,19 @@ pub(crate) fn get_next_level_path(
             .into_iter()
             .map(|link| Ok(Path::try_from(&link.tag)?))
             .filter_map(|path| {
+                debug!("got path in iter: {:#?}", path);
                 if path.is_ok() {
-                    let path = WrappedPath(path.unwrap());
-                    let chrono_path: ExternResult<NaiveDateTime> = path.try_into();
+                    let path = path.unwrap();
+                    let path_wrapped = WrappedPath(path.clone());
+                    let chrono_path: ExternResult<NaiveDateTime> = path_wrapped.try_into();
                     if chrono_path.is_err() {
                         return Some(Err(chrono_path.err().unwrap()));
                     };
                     let chrono_path = chrono_path.unwrap();
+                    debug!(
+                        "Chrono path: {:?}, from time: {:?}, until time: {:?}",
+                        chrono_path, from_time, until_time
+                    );
                     if chrono_path >= from_time && chrono_path <= until_time {
                         Some(Ok(path))
                     } else {

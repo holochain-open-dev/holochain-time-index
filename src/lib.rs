@@ -74,14 +74,14 @@ use utils::unwrap_chunk_interval_lock;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EntryChunkIndex {
-    pub time_frame: Index,
+    pub index: Index,
     pub links: Links,
 }
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
 /// TODO: would be cool to support DFS and BFS here
-pub fn get_addresses_between(
+pub fn get_indexes_between(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
@@ -90,27 +90,21 @@ pub fn get_addresses_between(
 ) -> ExternResult<Vec<EntryChunkIndex>> {
     let max_chunk_interval = unwrap_chunk_interval_lock();
     //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() > max_chunk_interval.as_millis() as i64 {
+    if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
         return Err(WasmError::Zome(String::from(
             "Time frame is smaller than index interval",
         )));
     };
+    debug!("Checking for indexes between {:?} & {:?}", from, until);
 
-    let mut out: Vec<EntryChunkIndex> = vec![];
-    let indexes = Index::get_indexes_for_time_span(from, until, index)?;
-    for index in indexes {
-        let links = get_links(index.hash()?, link_tag.clone())?;
-        out.push(EntryChunkIndex {
-            time_frame: Index::try_from(index)?,
-            links: links,
-        })
-    }
-    Ok(out)
+    Ok(Index::get_indexes_for_time_span(
+        from, until, index, link_tag,
+    )?)
 }
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
 /// at the current time index which will cover as much time as the current system time - MAX_CHUNK_INTERVAL
-pub fn get_current_addresses(
+pub fn get_current_index(
     index: String,
     link_tag: Option<LinkTag>,
     _limit: Option<usize>,
@@ -119,7 +113,7 @@ pub fn get_current_addresses(
         Some(index) => {
             let links = get_links(index.hash()?, link_tag)?;
             Ok(Some(EntryChunkIndex {
-                time_frame: Index::try_from(index)?,
+                index: Index::try_from(index)?,
                 links: links,
             }))
         }
@@ -139,7 +133,7 @@ pub fn get_most_recent_indexes(
         Some(index) => {
             let links = get_links(index.hash()?, link_tag)?;
             Ok(Some(EntryChunkIndex {
-                time_frame: Index::try_from(index)?,
+                index: Index::try_from(index)?,
                 links: links,
             }))
         }

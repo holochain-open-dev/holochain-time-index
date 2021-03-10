@@ -41,16 +41,18 @@ pub fn index_entry(entry: TestEntry) -> ExternResult<()> {
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug)]
 pub struct GetAddressesSinceInput {
-    pub last_seen: DateTime<Utc>,
+    pub index: String,
+    pub from: DateTime<Utc>,
+    pub until: DateTime<Utc>,
     pub limit: Option<usize>,
     pub link_tag: Option<LinkTag>
 }
 
 #[hdk_extern]
-pub fn get_addresses_since(
+pub fn get_addresses_between(
     input: GetAddressesSinceInput
 ) -> ExternResult<Vec<hc_time_index::EntryChunkIndex>> {
-    Ok(hc_time_index::get_addresses_since(input.last_seen, input.limit, input.link_tag)?)
+    Ok(hc_time_index::get_indexes_between(input.index, input.from, input.until, input.limit, input.link_tag)?)
 }
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug)]
@@ -62,7 +64,7 @@ pub struct GetCurrentAddressesInput {
 
 #[hdk_extern]
 pub fn get_current_addresses(input: GetCurrentAddressesInput) -> ExternResult<Option<EntryChunkIndex>> {
-    Ok(hc_time_index::get_current_addresses(input.index, input.link_tag, input.limit)?)
+    Ok(hc_time_index::get_current_index(input.index, input.link_tag, input.limit)?)
 }
 
 #[hdk_extern]

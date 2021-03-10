@@ -61,11 +61,34 @@ orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   var dateOffset = 10000; //10 seconds
   var date = new Date();
   date.setTime(date.getTime() - dateOffset);
-  await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: date.toISOString()})
+  await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index2", created: date.toISOString()})
   
   let get_index = await alice_happ.cells[0].call("time_index", "get_most_recent_indexes", {index: "test_index"})
   console.log("Got index", get_index);
   t.deepEqual(get_index.links.length, 2);
+
+  let get_index_current = await alice_happ.cells[0].call("time_index", "get_current_addresses", {index: "test_index"})
+  console.log("Got index", get_index_current);
+  t.deepEqual(get_index.links.length, 2);
+
+  //Create another index for one day ago
+  var dateOffset = (24*60*60*1000); //1 day ago
+  var date = new Date();
+  date.setTime(date.getTime() - dateOffset);
+  await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index3", created: date.toISOString()})
+
+  let results_between = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  console.log("Got results between", results_between);
+  t.deepEqual(results_between.length, 2);
+
+  //Create another index for one day ago
+  var dateOffset = (24*60*60*1000) / 2; //12 hr ago
+  var date = new Date();
+  date.setTime(date.getTime() - dateOffset);
+
+  let results_betwee2 = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  console.log("Got results between", results_betwee2);
+  t.deepEqual(results_betwee2.length, 1);
 })
 
 // Run all registered scenarios as a final step, and gather the report,

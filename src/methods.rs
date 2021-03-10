@@ -3,14 +3,12 @@ use std::time::Duration;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
-use crate::entries::{
-    DayIndex, HourIndex, Index, IndexIndex, IndexType, MinuteIndex, MonthIndex, SecondIndex,
-    YearIndex,
-};
+use crate::entries::{Index, IndexIndex, IndexType, TimeIndex};
 use crate::utils::{
     add_time_index_to_path, find_newest_time_path, get_index_for_timestamp, get_next_level_path,
     get_time_path, unwrap_chunk_interval_lock,
 };
+use crate::EntryChunkIndex;
 
 impl Index {
     /// Create a new time index
@@ -72,12 +70,12 @@ impl Index {
         let mut time_path = vec![Component::try_from(
             IndexIndex(index).get_sb()?.bytes().to_owned(),
         )?];
-        add_time_index_to_path::<YearIndex>(&mut time_path, &now, IndexType::Year)?;
-        add_time_index_to_path::<MonthIndex>(&mut time_path, &now, IndexType::Month)?;
-        add_time_index_to_path::<DayIndex>(&mut time_path, &now, IndexType::Day)?;
-        add_time_index_to_path::<HourIndex>(&mut time_path, &now, IndexType::Hour)?;
-        add_time_index_to_path::<MinuteIndex>(&mut time_path, &now, IndexType::Minute)?;
-        add_time_index_to_path::<SecondIndex>(&mut time_path, &now, IndexType::Second)?;
+        add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Year)?;
+        add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Month)?;
+        add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Day)?;
+        add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Hour)?;
+        add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Minute)?;
+        add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Second)?;
         let time_path = Path::from(time_path);
 
         let indexes = time_path.children()?.into_inner();
@@ -107,11 +105,11 @@ impl Index {
             IndexIndex(index).get_sb()?.bytes().to_owned(),
         )]);
 
-        let time_path = find_newest_time_path::<YearIndex>(time_path, IndexType::Year)?;
-        let time_path = find_newest_time_path::<MonthIndex>(time_path, IndexType::Month)?;
-        let time_path = find_newest_time_path::<DayIndex>(time_path, IndexType::Day)?;
-        let time_path = find_newest_time_path::<HourIndex>(time_path, IndexType::Hour)?;
-        let time_path = find_newest_time_path::<MinuteIndex>(time_path, IndexType::Minute)?;
+        let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Year)?;
+        let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Month)?;
+        let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Day)?;
+        let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Hour)?;
+        let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Minute)?;
 
         let indexes = time_path.children()?.into_inner();
         let ser_path = indexes
@@ -141,7 +139,8 @@ impl Index {
         from: DateTime<Utc>,
         until: DateTime<Utc>,
         index: String,
-    ) -> ExternResult<Vec<Path>> {
+        link_tag: Option<LinkTag>,
+    ) -> ExternResult<Vec<EntryChunkIndex>> {
         let paths = Path::from(vec![Component::from(
             IndexIndex(index).get_sb()?.bytes().to_owned(),
         )]);
@@ -150,8 +149,30 @@ impl Index {
         let paths = get_next_level_path(paths, &from, &until, IndexType::Day)?;
         let paths = get_next_level_path(paths, &from, &until, IndexType::Hour)?;
         let paths = get_next_level_path(paths, &from, &until, IndexType::Minute)?;
+        //debug!("Got paths after search: {:#?}", paths);
+        let mut out: Vec<EntryChunkIndex> = vec![];
 
-        Ok(vec![])
+        for path in paths {
+            let paths = path.children()?.into_inner();
+            let mut indexes = paths
+                .clone()
+                .into_iter()
+                .map(|link| {
+                    let path = Path::try_from(&link.tag)?;
+                    let index = Index::try_from(path.clone())?;
+                    let entry_chunk_index = EntryChunkIndex {
+                        index: index,
+                        links: get_links(path.hash()?, link_tag.clone())?,
+                    };
+                    Ok(entry_chunk_index)
+                })
+                .collect::<ExternResult<Vec<EntryChunkIndex>>>()?;
+            out.append(&mut indexes);
+        }
+        out.sort_by(|a, b| a.index.from.partial_cmp(&b.index.from).unwrap());
+        out.reverse();
+
+        Ok(out)
     }
 
     /// Takes a timestamp and creates an index path

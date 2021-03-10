@@ -101,10 +101,11 @@ impl Index {
 
     /// Traverses time tree following latest time links until it finds the latest index
     pub fn get_latest_index(index: String) -> ExternResult<Option<Path>> {
+        // This should also be smarter. We could at the least derive the index & current year and check that for paths before moving
+        // to the previous year. This would help remove 2 get_link() calls from the DHT on source Index path & Index + Year path
         let time_path = Path::from(vec![Component::from(
             IndexIndex(index).get_sb()?.bytes().to_owned(),
         )]);
-
         let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Year)?;
         let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Month)?;
         let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Day)?;
@@ -141,6 +142,8 @@ impl Index {
         index: String,
         link_tag: Option<LinkTag>,
     ) -> ExternResult<Vec<EntryChunkIndex>> {
+        //TODO: this is actually super overkill; we dont need to search each part of the time path but instead can derive 
+        //path from input where from & until are the same and then only make searches for datetime section where from & until diverge
         let paths = Path::from(vec![Component::from(
             IndexIndex(index).get_sb()?.bytes().to_owned(),
         )]);

@@ -15,35 +15,7 @@ The main component that allows the mitigation of DHT hotspots are:
 
 This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkTag>)` function. This function indexes the submitted entry into a time b-tree. The b-tree looks something like the following:
 
-```graphviz
-digraph D {
-    rankdir="LR";
-    Index [label="index"] ;
-    Year [label="2021"] ;
-    Month [label="jan"] ;
-    Day [label="1st (day)"]
-    Hour01 [label="1st (hour)"] ;
-    Hour02 [label="2nd (hour)"] ;
-    Minute [label="1st (minute)"] ;
-    Minute2 [label="1st (minute)"] ;
-    TimeFrame1 [label="TimeFrame (0-N seconds)"] ;
-    TimeFrame2 [label="TimeFrame (N-2N seconds)"] ;
-    TimeFrame3 [label="TimeFrame (0-N seconds)"] ;
-    
-    Index -> Year -> Month
-    Month -> Day
-    Day -> Hour01
-    Day -> Hour02
-    Hour01 -> Minute
-    Hour02 -> Minute2
-    Minute -> TimeFrame1
-    Minute -> TimeFrame2
-    Minute2 -> TimeFrame3
-    TimeFrame1 -> ENTRY [label="link_tag"]
-    TimeFrame2 -> ENTRY2 [label="link_tag"]
-    TimeFrame3 -> ENTRY3 [label="link_tag"]
-}
-```
+![B-tree](./media/b-tree-time-path.png)
 
 In the above example we are indexing 3 entries. It should be simple to follow the time tree and see how this tree can be used to locate an entry in time; but we have also introduced a new concept: TimeFrame. 
 TimeFrame is the last piece of the path where entries get linked. This allows for the specification of a time frame that is greater than one unit of the "parent" time. This is useful when you want to link at a fidelity that is not offered by the ordinary time data; i.e index links at every 30 second chunk vs every minute or link to every 10 minute chunk vs every hour.

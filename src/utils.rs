@@ -16,6 +16,21 @@ pub(crate) fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
     Ok(links)
 }
 
+pub(crate) fn find_paths_for_time_span(from: DateTime<Utc>, until: DateTime<Utc>, index: String) -> ExternResult<Vec<Path>> {
+    //TODO: this is actually super overkill; we dont need to search each part of the time path but instead can derive
+    //path from input where from & until are the same and then only make searches for datetime section where from & until diverge
+    let paths = Path::from(vec![Component::from(
+        IndexIndex(index).get_sb()?.bytes().to_owned(),
+    )]);
+    let paths = get_next_level_path(vec![paths], &from, &until, IndexType::Year)?;
+    let paths = get_next_level_path(paths, &from, &until, IndexType::Month)?;
+    let paths = get_next_level_path(paths, &from, &until, IndexType::Day)?;
+    let paths = get_next_level_path(paths, &from, &until, IndexType::Hour)?;
+    let paths = get_next_level_path(paths, &from, &until, IndexType::Minute)?;
+
+    Ok(paths)
+}
+
 /// Tries to find the newest time period one level down from current path position
 /// Returns path passed in params if maximum depth has been reached
 pub(crate) fn find_newest_time_path<
@@ -162,7 +177,7 @@ pub(crate) fn get_index_for_timestamp(time: DateTime<Utc>) -> Index {
     }
 }
 
-pub(crate) fn get_next_level_path(
+fn get_next_level_path(
     paths: Vec<Path>,
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,

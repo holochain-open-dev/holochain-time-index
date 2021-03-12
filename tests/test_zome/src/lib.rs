@@ -52,7 +52,7 @@ pub struct GetAddressesSinceInput {
 pub fn get_addresses_between(
     input: GetAddressesSinceInput
 ) -> ExternResult<Vec<hc_time_index::EntryChunkIndex>> {
-    Ok(hc_time_index::get_indexes_between(input.index, input.from, input.until, input.limit, input.link_tag)?)
+    Ok(hc_time_index::get_indexes_for_time_span(input.index, input.from, input.until, input.limit, input.link_tag)?)
 }
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug)]

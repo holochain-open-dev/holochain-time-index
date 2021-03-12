@@ -103,7 +103,7 @@ pub struct EntryChunkIndex {
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
 /// TODO: would be cool to support DFS and BFS here
-pub fn get_indexes_between(
+pub fn get_indexes_for_time_span(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
@@ -118,9 +118,45 @@ pub fn get_indexes_between(
         )));
     };
 
-    Ok(Index::get_indexes_for_time_span(
+    Ok(methods::get_indexes_for_time_span(
         from, until, index, link_tag,
     )?)
+}
+
+pub fn get_links_for_time_span(
+    index: String,
+    from: DateTime<Utc>,
+    until: DateTime<Utc>,
+    _limit: Option<usize>,
+    link_tag: Option<LinkTag>
+) -> ExternResult<Vec<Link>> {
+    let max_chunk_interval = unwrap_chunk_interval_lock();
+    //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
+    if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
+        return Err(WasmError::Zome(String::from(
+            "Time frame is smaller than index interval",
+        )));
+    };
+
+    Ok(methods::get_links_for_time_span(from, until, index, link_tag)?)
+}
+
+pub fn get_links_and_load_for_time_span<T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry>(
+    index: String,
+    from: DateTime<Utc>,
+    until: DateTime<Utc>,
+    _limit: Option<usize>,
+    link_tag: Option<LinkTag>
+) -> ExternResult<Vec<T>> {
+    let max_chunk_interval = unwrap_chunk_interval_lock();
+    //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
+    if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
+        return Err(WasmError::Zome(String::from(
+            "Time frame is smaller than index interval",
+        )));
+    };
+    
+    Ok(methods::get_links_and_load_for_time_span::<T>(from, until, index, link_tag)?)
 }
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
@@ -130,7 +166,7 @@ pub fn get_current_index(
     link_tag: Option<LinkTag>,
     _limit: Option<usize>,
 ) -> ExternResult<Option<EntryChunkIndex>> {
-    match Index::get_current_index(index)? {
+    match methods::get_current_index(index)? {
         Some(index) => {
             let links = get_links(index.hash()?, link_tag)?;
             Ok(Some(EntryChunkIndex {
@@ -149,7 +185,7 @@ pub fn get_most_recent_indexes(
     link_tag: Option<LinkTag>,
     _limit: Option<usize>,
 ) -> ExternResult<Option<EntryChunkIndex>> {
-    let recent_index = Index::get_latest_index(index)?;
+    let recent_index = methods::get_latest_index(index)?;
     match recent_index {
         Some(index) => {
             let links = get_links(index.hash()?, link_tag)?;
@@ -169,7 +205,7 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
     data: T,
     link_tag: LT,
 ) -> ExternResult<()> {
-    let index = Index::create_for_timestamp(index, data.entry_time())?;
+    let index = methods::create_for_timestamp(index, data.entry_time())?;
     create_link(index.hash()?, data.hash()?, link_tag)?;
     Ok(())
 }

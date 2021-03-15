@@ -1,4 +1,4 @@
-# HC-Time-Chunking
+# Holochain-Time-Index
 
 ## Purpose
 

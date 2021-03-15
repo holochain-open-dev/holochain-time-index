@@ -50,9 +50,10 @@ This DNA exposes a few helper functions to make integrating with this time serie
 Using the above methods its possible to build an application which places an emphasis on time ordered data (such as a group DM or news feed). Or you can use the time ordered nature of the data as a natural pagination for larger queries where you may wish to aggregate data over a given time period and then perform some further computations over it.
 
 
-## Status
+## Status/TODO
 
 - [x] Basic public lib functions implemented & tested
+- [ ] Crates own internal error type
 - [ ] Basic performance optimizations for search functions
 - [ ] Advanced Performance optimizations for search functions
 - [ ] Advanced testing of DNA functioning

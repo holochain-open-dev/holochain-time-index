@@ -1,4 +1,4 @@
-//! # HC-Time-Chunking
+//! # Holochain-Time-Index
 //!
 //! ## Purpose
 //!
@@ -15,7 +15,7 @@
 //!
 //! This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkTag>)` function. This function indexes the submitted entry into a time b-tree. The b-tree looks something like the following:
 //!
-//! ![B-tree](https://github.com/juntofoundation/HC-Time-Chunking)
+//! ![B-tree](https://github.com/juntofoundation/Holochain-Time-Index)
 //!
 //! In the above example we are indexing 3 entries. It should be simple to follow the time tree and see how this tree can be used to locate an entry in time; but we have also introduced a new concept: TimeFrame.
 //! TimeFrame is the last piece of the path where entries get linked. This allows for the specification of a time frame that is greater than one unit of the "parent" time. This is useful when you want to link at a fidelity that is not offered by the ordinary time data; i.e index links at every 30 second chunk vs every minute or link to every 10 minute chunk vs every hour.

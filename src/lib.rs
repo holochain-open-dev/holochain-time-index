@@ -15,7 +15,7 @@
 //!
 //! This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkTag>)` function. This function indexes the submitted entry into a time b-tree. The b-tree looks something like the following:
 //!
-//! ![B-tree](https://github.com/juntofoundation/Holochain-Time-Index)
+//! ![B-tree](https://github.com/holochain-open-dev/Holochain-Time-Index)
 //!
 //! In the above example we are indexing 3 entries. It should be simple to follow the time tree and see how this tree can be used to locate an entry in time; but we have also introduced a new concept: TimeFrame.
 //! TimeFrame is the last piece of the path where entries get linked. This allows for the specification of a time frame that is greater than one unit of the "parent" time. This is useful when you want to link at a fidelity that is not offered by the ordinary time data; i.e index links at every 30 second chunk vs every minute or link to every 10 minute chunk vs every hour.
@@ -77,6 +77,7 @@ use std::time::Duration;
 
 use hdk3::prelude::*;
 
+mod errors;
 mod impls;
 mod utils;
 mod validation;
@@ -92,6 +93,7 @@ mod traits;
 pub use traits::IndexableEntry;
 
 use entries::{Index, IndexType};
+use errors::{IndexError, IndexResult};
 use utils::unwrap_chunk_interval_lock;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -109,13 +111,13 @@ pub fn get_indexes_for_time_span(
     until: DateTime<Utc>,
     _limit: Option<usize>,
     link_tag: Option<LinkTag>,
-) -> ExternResult<Vec<EntryChunkIndex>> {
+) -> IndexResult<Vec<EntryChunkIndex>> {
     let max_chunk_interval = unwrap_chunk_interval_lock();
     //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
     if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
-        return Err(WasmError::Zome(String::from(
+        return Err(IndexError::RequestError(
             "Time frame is smaller than index interval",
-        )));
+        ));
     };
 
     Ok(methods::get_indexes_for_time_span(
@@ -128,35 +130,41 @@ pub fn get_links_for_time_span(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     _limit: Option<usize>,
-    link_tag: Option<LinkTag>
-) -> ExternResult<Vec<Link>> {
+    link_tag: Option<LinkTag>,
+) -> IndexResult<Vec<Link>> {
     let max_chunk_interval = unwrap_chunk_interval_lock();
     //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
     if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
-        return Err(WasmError::Zome(String::from(
+        return Err(IndexError::RequestError(
             "Time frame is smaller than index interval",
-        )));
+        ));
     };
 
-    Ok(methods::get_links_for_time_span(from, until, index, link_tag)?)
+    Ok(methods::get_links_for_time_span(
+        from, until, index, link_tag,
+    )?)
 }
 
-pub fn get_links_and_load_for_time_span<T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry>(
+pub fn get_links_and_load_for_time_span<
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry,
+>(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     _limit: Option<usize>,
-    link_tag: Option<LinkTag>
-) -> ExternResult<Vec<T>> {
+    link_tag: Option<LinkTag>,
+) -> IndexResult<Vec<T>> {
     let max_chunk_interval = unwrap_chunk_interval_lock();
     //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
     if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
-        return Err(WasmError::Zome(String::from(
+        return Err(IndexError::RequestError(
             "Time frame is smaller than index interval",
-        )));
+        ));
     };
-    
-    Ok(methods::get_links_and_load_for_time_span::<T>(from, until, index, link_tag)?)
+
+    Ok(methods::get_links_and_load_for_time_span::<T>(
+        from, until, index, link_tag,
+    )?)
 }
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
@@ -165,7 +173,7 @@ pub fn get_current_index(
     index: String,
     link_tag: Option<LinkTag>,
     _limit: Option<usize>,
-) -> ExternResult<Option<EntryChunkIndex>> {
+) -> IndexResult<Option<EntryChunkIndex>> {
     match methods::get_current_index(index)? {
         Some(index) => {
             let links = get_links(index.hash()?, link_tag)?;
@@ -184,7 +192,7 @@ pub fn get_most_recent_indexes(
     index: String,
     link_tag: Option<LinkTag>,
     _limit: Option<usize>,
-) -> ExternResult<Option<EntryChunkIndex>> {
+) -> IndexResult<Option<EntryChunkIndex>> {
     let recent_index = methods::get_latest_index(index)?;
     match recent_index {
         Some(index) => {
@@ -204,26 +212,26 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
     index: String,
     data: T,
     link_tag: LT,
-) -> ExternResult<()> {
+) -> IndexResult<()> {
     let index = methods::create_for_timestamp(index, data.entry_time())?;
     create_link(index.hash()?, data.hash()?, link_tag)?;
     Ok(())
 }
 
 /// Returns the child paths on submitted paths. This allows the manual traversal down a time tree to get results as desired by callee
-pub fn get_paths_for_path(path: Path, link_tag: Option<LinkTag>) -> ExternResult<Vec<Path>> {
+pub fn get_paths_for_path(path: Path, link_tag: Option<LinkTag>) -> IndexResult<Vec<Path>> {
     match link_tag {
         Some(link_tag) => Ok(get_links(path.hash()?, Some(link_tag))?
             .into_inner()
             .into_iter()
             .map(|link| Ok(Path::try_from(&link.tag)?))
-            .collect::<ExternResult<Vec<Path>>>()?),
+            .collect::<IndexResult<Vec<Path>>>()?),
         None => Ok(path
             .children()?
             .into_inner()
             .into_iter()
             .map(|link| Ok(Path::try_from(&link.tag)?))
-            .collect::<ExternResult<Vec<Path>>>()?),
+            .collect::<IndexResult<Vec<Path>>>()?),
     }
 }
 

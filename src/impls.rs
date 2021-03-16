@@ -5,27 +5,28 @@ use std::convert::{TryFrom, TryInto};
 use chrono::{NaiveDate, NaiveDateTime};
 use hdk3::{
     hash_path::path::{Component, Path},
-    prelude::{ExternResult, SerializedBytes, UnsafeBytes, WasmError},
+    prelude::{SerializedBytes, UnsafeBytes},
 };
 
 use crate::entries::{Index, IndexIndex, TimeIndex, WrappedPath};
+use crate::errors::{IndexError, IndexResult};
 
 impl IndexIndex {
-    pub fn get_sb(self) -> ExternResult<SerializedBytes> {
+    pub fn get_sb(self) -> IndexResult<SerializedBytes> {
         Ok(self.try_into()?)
     }
 }
 
 impl TryFrom<Path> for Index {
-    type Error = WasmError;
+    type Error = IndexError;
 
-    fn try_from(data: Path) -> ExternResult<Index> {
+    fn try_from(data: Path) -> IndexResult<Index> {
         let path_comps: Vec<Component> = data.into();
         let time_index = path_comps
             .last()
-            .ok_or(WasmError::Zome(String::from(
+            .ok_or(IndexError::InternalError(
                 "Cannot get Index from empty path",
-            )))?
+            ))?
             .to_owned();
         let time_index: Vec<u8> = time_index.into();
         let time_index = Index::try_from(SerializedBytes::from(UnsafeBytes::from(time_index)))?;
@@ -34,13 +35,13 @@ impl TryFrom<Path> for Index {
 }
 
 impl TimeIndex {
-    pub fn get_sb(self) -> ExternResult<SerializedBytes> {
+    pub fn get_sb(self) -> IndexResult<SerializedBytes> {
         Ok(self.try_into()?)
     }
 }
 
 impl TryFrom<Component> for TimeIndex {
-    type Error = WasmError;
+    type Error = IndexError;
 
     fn try_from(data: Component) -> Result<Self, Self::Error> {
         let time_index: Vec<u8> = data.into();
@@ -51,7 +52,7 @@ impl TryFrom<Component> for TimeIndex {
 }
 
 impl TryInto<NaiveDateTime> for WrappedPath {
-    type Error = WasmError;
+    type Error = IndexError;
 
     fn try_into(self) -> Result<NaiveDateTime, Self::Error> {
         let data = self.0;
@@ -60,9 +61,9 @@ impl TryInto<NaiveDateTime> for WrappedPath {
             TimeIndex::try_from(
                 path_comps
                     .get(1)
-                    .ok_or(WasmError::Zome(String::from(
+                    .ok_or(IndexError::InternalError(
                         "Expected at least two elements to convert to DateTime",
-                    )))?
+                    ))?
                     .to_owned(),
             )?
             .0 as i32,

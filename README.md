@@ -53,7 +53,7 @@ Using the above methods its possible to build an application which places an emp
 ## Status/TODO
 
 - [x] Basic public lib functions implemented & tested
-- [ ] Crates own internal error type
+- [x] Crates own internal error type
 - [ ] Basic performance optimizations for search functions
 - [ ] Advanced Performance optimizations for search functions
 - [ ] Advanced testing of DNA functioning

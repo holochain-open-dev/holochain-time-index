@@ -3,32 +3,36 @@ use std::time::Duration;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
-use crate::{IndexableEntry, entries::{Index, IndexIndex, IndexType, TimeIndex}};
+use crate::errors::{IndexError, IndexResult};
 use crate::utils::{
-    add_time_index_to_path, find_newest_time_path, get_index_for_timestamp,
-    get_time_path, unwrap_chunk_interval_lock, find_paths_for_time_span
+    add_time_index_to_path, find_newest_time_path, find_paths_for_time_span,
+    get_index_for_timestamp, get_time_path, unwrap_chunk_interval_lock,
 };
 use crate::EntryChunkIndex;
+use crate::{
+    entries::{Index, IndexIndex, IndexType, TimeIndex},
+    IndexableEntry,
+};
 
 impl Index {
     /// Create a new time index
-    pub(crate) fn new(&self, index: String) -> ExternResult<Path> {
+    pub(crate) fn new(&self, index: String) -> IndexResult<Path> {
         //These validations are to help zome callers; but should also be present in validation rules
         if self.from > sys_time()? {
-            return Err(WasmError::Zome(String::from(
+            return Err(IndexError::RequestError(
                 "Time index cannot start in the future",
-            )));
+            ));
         };
         let max_chunk_interval = unwrap_chunk_interval_lock();
         if self.until - self.from != max_chunk_interval {
-            return Err(WasmError::Zome(String::from(
+            return Err(IndexError::RequestError(
                 "Time index should use period equal to max interval set by DNA",
-            )));
+            ));
         };
         if self.from.as_millis() % max_chunk_interval.as_millis() != 0 {
-            return Err(WasmError::Zome(String::from(
+            return Err(IndexError::RequestError(
                 "Time index does not follow index interval ordering",
-            )));
+            ));
         };
 
         let mut time_path = get_time_path(index, self.from)?;
@@ -42,7 +46,7 @@ impl Index {
 }
 
 /// Get current index using sys_time as source for time
-pub fn get_current_index(index: String) -> ExternResult<Option<Path>> {
+pub fn get_current_index(index: String) -> IndexResult<Option<Path>> {
     //Running with the asumption here that sys_time is always UTC
     let now = sys_time()?;
     let now = DateTime::<Utc>::from_utc(
@@ -67,7 +71,7 @@ pub fn get_current_index(index: String) -> ExternResult<Option<Path>> {
         .clone()
         .into_iter()
         .map(|link| Ok(Index::try_from(Path::try_from(&link.tag)?)?.from))
-        .collect::<ExternResult<Vec<Duration>>>()?;
+        .collect::<IndexResult<Vec<Duration>>>()?;
     let permutation = permutation::sort_by(&ser_path[..], |a, b| a.partial_cmp(&b).unwrap());
     let mut ordered_indexes = permutation.apply_slice(&indexes[..]);
     ordered_indexes.reverse();
@@ -75,7 +79,7 @@ pub fn get_current_index(index: String) -> ExternResult<Option<Path>> {
     match ordered_indexes.pop() {
         Some(link) => match get(link.target, GetOptions::content())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                WasmError::Zome(String::from("Could not deserialize link target into Index")),
+                IndexError::InternalError("Expected element to contain app entry data"),
             )?)),
             None => Ok(None),
         },
@@ -84,7 +88,7 @@ pub fn get_current_index(index: String) -> ExternResult<Option<Path>> {
 }
 
 /// Traverses time tree following latest time links until it finds the latest index
-pub fn get_latest_index(index: String) -> ExternResult<Option<Path>> {
+pub fn get_latest_index(index: String) -> IndexResult<Option<Path>> {
     // This should also be smarter. We could at the least derive the index & current year and check that for paths before moving
     // to the previous year. This would help remove 2 get_link() calls from the DHT on source Index path & Index + Year path
     let time_path = Path::from(vec![Component::from(
@@ -101,7 +105,7 @@ pub fn get_latest_index(index: String) -> ExternResult<Option<Path>> {
         .clone()
         .into_iter()
         .map(|link| Ok(Index::try_from(Path::try_from(&link.tag)?)?.from))
-        .collect::<ExternResult<Vec<Duration>>>()?;
+        .collect::<IndexResult<Vec<Duration>>>()?;
     let permutation = permutation::sort_by(&ser_path[..], |a, b| a.partial_cmp(&b).unwrap());
     let mut ordered_indexes: Vec<Link> = permutation.apply_slice(&indexes[..]);
     ordered_indexes.reverse();
@@ -109,11 +113,11 @@ pub fn get_latest_index(index: String) -> ExternResult<Option<Path>> {
     match ordered_indexes.pop() {
         Some(link) => match get(link.target, GetOptions::content())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
-                WasmError::Zome(String::from("Could not deserialize link target into Index")),
+                IndexError::InternalError("Expected element to contain app entry data"),
             )?)),
-            None => Err(WasmError::Zome(String::from(
-                "Could not deserialize link target into Index",
-            ))),
+            None => Err(IndexError::InternalError(
+                "Expected link target to contain point to an entry",
+            )),
         },
         None => Ok(None),
     }
@@ -125,7 +129,7 @@ pub(crate) fn get_indexes_for_time_span(
     until: DateTime<Utc>,
     index: String,
     link_tag: Option<LinkTag>,
-) -> ExternResult<Vec<EntryChunkIndex>> {
+) -> IndexResult<Vec<EntryChunkIndex>> {
     let paths = find_paths_for_time_span(from, until, index)?;
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<EntryChunkIndex> = vec![];
@@ -144,7 +148,7 @@ pub(crate) fn get_indexes_for_time_span(
                 };
                 Ok(entry_chunk_index)
             })
-            .collect::<ExternResult<Vec<EntryChunkIndex>>>()?;
+            .collect::<IndexResult<Vec<EntryChunkIndex>>>()?;
         out.append(&mut indexes);
     }
     out.sort_by(|a, b| a.index.from.partial_cmp(&b.index.from).unwrap());
@@ -159,7 +163,7 @@ pub(crate) fn get_links_for_time_span(
     until: DateTime<Utc>,
     index: String,
     link_tag: Option<LinkTag>,
-) -> ExternResult<Vec<Link>> {
+) -> IndexResult<Vec<Link>> {
     let paths = find_paths_for_time_span(from, until, index)?;
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<Link> = vec![];
@@ -174,7 +178,7 @@ pub(crate) fn get_links_for_time_span(
                 let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
                 Ok(links)
             })
-            .collect::<ExternResult<Vec<Vec<Link>>>>()?
+            .collect::<IndexResult<Vec<Vec<Link>>>>()?
             .into_iter()
             .flatten()
             .collect();
@@ -187,12 +191,14 @@ pub(crate) fn get_links_for_time_span(
 }
 
 /// Get all links that exist for some time period between from -> until
-pub(crate) fn get_links_and_load_for_time_span<T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry>(
+pub(crate) fn get_links_and_load_for_time_span<
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry,
+>(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     index: String,
     link_tag: Option<LinkTag>,
-) -> ExternResult<Vec<T>> {
+) -> IndexResult<Vec<T>> {
     let paths = find_paths_for_time_span(from, until, index)?;
     let mut out: Vec<T> = vec![];
 
@@ -206,22 +212,23 @@ pub(crate) fn get_links_and_load_for_time_span<T: TryFrom<SerializedBytes, Error
                 let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
                 Ok(links)
             })
-            .collect::<ExternResult<Vec<Vec<Link>>>>()?
+            .collect::<IndexResult<Vec<Vec<Link>>>>()?
             .into_iter()
             .flatten()
-            .map(|link| {
-                match get(link.target, GetOptions::content())? {
-                    Some(chunk) => Ok(chunk.entry().to_app_option()?.ok_or(
-                        WasmError::Zome(String::from(
-                            "Could not deserialize link target into Index",
-                        )),
-                    )?),
-                    None => Err(WasmError::Zome(String::from(
-                        "Could not get link target",
-                    )))
+            .map(|link| match get(link.target, GetOptions::content())? {
+                Some(chunk) => {
+                    Ok(chunk
+                        .entry()
+                        .to_app_option()?
+                        .ok_or(IndexError::InternalError(
+                            "Expected element to contain app entry data",
+                        ))?)
                 }
+                None => Err(IndexError::InternalError(
+                    "Expected link target to contain point to an entry",
+                )),
             })
-            .collect::<ExternResult<Vec<T>>>()?;
+            .collect::<IndexResult<Vec<T>>>()?;
         out.append(&mut indexes);
     }
     out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
@@ -231,7 +238,7 @@ pub(crate) fn get_links_and_load_for_time_span<T: TryFrom<SerializedBytes, Error
 }
 
 /// Takes a timestamp and creates an index path
-pub(crate) fn create_for_timestamp(index: String, time: DateTime<Utc>) -> ExternResult<Path> {
+pub(crate) fn create_for_timestamp(index: String, time: DateTime<Utc>) -> IndexResult<Path> {
     let time_index = get_index_for_timestamp(time);
     let path = time_index.new(index)?;
     Ok(path)

@@ -4,19 +4,24 @@ use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, Timelike, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{Index, IndexIndex, IndexType, TimeIndex, WrappedPath};
+use crate::errors::{IndexError, IndexResult};
 use crate::{MAX_CHUNK_INTERVAL, TIME_INDEX_DEPTH};
 
-pub(crate) fn get_path_links_on_path(path: &Path) -> ExternResult<Vec<Path>> {
+pub(crate) fn get_path_links_on_path(path: &Path) -> IndexResult<Vec<Path>> {
     let links = path
         .children()?
         .into_inner()
         .into_iter()
         .map(|link| Ok(Path::try_from(&link.tag)?))
-        .collect::<ExternResult<Vec<Path>>>()?;
+        .collect::<IndexResult<Vec<Path>>>()?;
     Ok(links)
 }
 
-pub(crate) fn find_paths_for_time_span(from: DateTime<Utc>, until: DateTime<Utc>, index: String) -> ExternResult<Vec<Path>> {
+pub(crate) fn find_paths_for_time_span(
+    from: DateTime<Utc>,
+    until: DateTime<Utc>,
+    index: String,
+) -> IndexResult<Vec<Path>> {
     //TODO: this is actually super overkill; we dont need to search each part of the time path but instead can derive
     //path from input where from & until are the same and then only make searches for datetime section where from & until diverge
     let paths = Path::from(vec![Component::from(
@@ -38,7 +43,7 @@ pub(crate) fn find_newest_time_path<
 >(
     path: Path,
     time_index: IndexType,
-) -> ExternResult<Path> {
+) -> IndexResult<Path> {
     match time_index {
         IndexType::Year => (),
         IndexType::Month => (),
@@ -72,10 +77,9 @@ pub(crate) fn find_newest_time_path<
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
     let mut links = get_path_links_on_path(&path)?;
     if links.len() == 0 {
-        return Err(WasmError::Zome(format!(
-            "Could not find any time paths for path: {:?}",
-            path
-        )));
+        return Err(IndexError::InternalError(
+            "Could not find any time paths for path",
+        ));
     };
     links.sort_by(|a, b| {
         let a_val: Vec<Component> = a.to_owned().into();
@@ -102,7 +106,7 @@ pub(crate) fn add_time_index_to_path<
     time_path: &mut Vec<Component>,
     from_timestamp: &DateTime<Utc>,
     time_index: IndexType,
-) -> ExternResult<()> {
+) -> IndexResult<()> {
     let from_time = match time_index {
         IndexType::Year => from_timestamp.year() as u32,
         IndexType::Month => from_timestamp.month(),
@@ -141,7 +145,7 @@ pub(crate) fn add_time_index_to_path<
 pub(crate) fn get_time_path(
     index: String,
     from: std::time::Duration,
-) -> ExternResult<Vec<Component>> {
+) -> IndexResult<Vec<Component>> {
     //Create timestamp "tree"; i.e 2020 -> 02 -> 16 -> chunk
     //Create from timestamp
     let from_timestamp = DateTime::<Utc>::from_utc(
@@ -182,7 +186,7 @@ fn get_next_level_path(
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,
     time_index: IndexType,
-) -> ExternResult<Vec<Path>> {
+) -> IndexResult<Vec<Path>> {
     let (from_time, until_time) = match time_index {
         IndexType::Year => (
             NaiveDate::from_ymd(from.year(), 1, 1).and_hms(1, 1, 1),
@@ -267,7 +271,7 @@ fn get_next_level_path(
                 if path.is_ok() {
                     let path = path.unwrap();
                     let path_wrapped = WrappedPath(path.clone());
-                    let chrono_path: ExternResult<NaiveDateTime> = path_wrapped.try_into();
+                    let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.try_into();
                     if chrono_path.is_err() {
                         return Some(Err(chrono_path.err().unwrap()));
                     };
@@ -285,7 +289,7 @@ fn get_next_level_path(
                     Some(Err(path.err().unwrap()))
                 }
             })
-            .collect::<ExternResult<Vec<Path>>>()?;
+            .collect::<IndexResult<Vec<Path>>>()?;
         out.append(&mut lower_paths);
     }
     Ok(out)

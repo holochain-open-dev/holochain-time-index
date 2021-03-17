@@ -53,7 +53,7 @@
 //! ## Status
 //!
 //! - [x] Basic public lib functions implemented & tested
-//! - [ ] Basic performance optimizations for search functions
+//! - [x] Basic performance optimizations for search functions
 //! - [ ] Advanced Performance optimizations for search functions
 //! - [ ] Advanced testing of DNA functioning
 //! - [ ] Lib's variables derived from host DNA properties (blocked until HDK support)
@@ -77,8 +77,9 @@ use std::time::Duration;
 
 use hdk3::prelude::*;
 
-mod errors;
+pub mod errors;
 mod impls;
+mod search;
 mod utils;
 mod validation;
 
@@ -125,6 +126,7 @@ pub fn get_indexes_for_time_span(
     )?)
 }
 
+/// Get links for index that exist between two timestamps
 pub fn get_links_for_time_span(
     index: String,
     from: DateTime<Utc>,
@@ -145,6 +147,7 @@ pub fn get_links_for_time_span(
     )?)
 }
 
+/// Get links for index that exist between two timestamps and attempt to serialize link targets to T
 pub fn get_links_and_load_for_time_span<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry,
 >(

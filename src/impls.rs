@@ -11,7 +11,15 @@ use hdk3::{
 use crate::entries::{Index, IndexIndex, TimeIndex, WrappedPath};
 use crate::errors::{IndexError, IndexResult};
 
+/// Helper function to get serializedbytes of IndexIndex and make this cleaner in the code
 impl IndexIndex {
+    pub fn get_sb(self) -> IndexResult<SerializedBytes> {
+        Ok(self.try_into()?)
+    }
+}
+
+/// Helper function to get serializedbytes of TimeIndex and make this cleaner in the code
+impl TimeIndex {
     pub fn get_sb(self) -> IndexResult<SerializedBytes> {
         Ok(self.try_into()?)
     }
@@ -34,12 +42,6 @@ impl TryFrom<Path> for Index {
     }
 }
 
-impl TimeIndex {
-    pub fn get_sb(self) -> IndexResult<SerializedBytes> {
-        Ok(self.try_into()?)
-    }
-}
-
 impl TryFrom<Component> for TimeIndex {
     type Error = IndexError;
 
@@ -51,6 +53,8 @@ impl TryFrom<Component> for TimeIndex {
     }
 }
 
+/// Convert a path into a NaiveDateTime; will fill datetime from path elements and will default to value 1 if no path component
+/// is found for a given datetime element
 impl TryInto<NaiveDateTime> for WrappedPath {
     type Error = IndexError;
 
@@ -62,7 +66,7 @@ impl TryInto<NaiveDateTime> for WrappedPath {
                 path_comps
                     .get(1)
                     .ok_or(IndexError::InternalError(
-                        "Expected at least two elements to convert to DateTime",
+                        "Expected at least one elements to convert to DateTime",
                     ))?
                     .to_owned(),
             )?

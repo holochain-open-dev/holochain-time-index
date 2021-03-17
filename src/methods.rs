@@ -4,9 +4,9 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::errors::{IndexError, IndexResult};
+use crate::search::{find_newest_time_path, find_paths_for_time_span};
 use crate::utils::{
-    add_time_index_to_path, find_newest_time_path, find_paths_for_time_span,
-    get_index_for_timestamp, get_time_path, unwrap_chunk_interval_lock,
+    add_time_index_to_path, get_index_for_timestamp, get_time_path, unwrap_chunk_interval_lock,
 };
 use crate::EntryChunkIndex;
 use crate::{
@@ -131,7 +131,7 @@ pub(crate) fn get_indexes_for_time_span(
     link_tag: Option<LinkTag>,
 ) -> IndexResult<Vec<EntryChunkIndex>> {
     let paths = find_paths_for_time_span(from, until, index)?;
-    //debug!("Got paths after search: {:#?}", paths);
+    debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<EntryChunkIndex> = vec![];
 
     for path in paths {

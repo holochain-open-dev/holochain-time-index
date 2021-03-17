@@ -54,7 +54,8 @@ Using the above methods its possible to build an application which places an emp
 
 - [x] Basic public lib functions implemented & tested
 - [x] Crates own internal error type
-- [ ] Basic performance optimizations for search functions
+- [x] Basic performance optimizations for search between function
+- [ ] Basic performance optimizations for local vec iteration 
 - [ ] Advanced Performance optimizations for search functions
 - [ ] Advanced testing of DNA functioning
 - [ ] Lib's variables derived from host DNA properties (blocked until HDK support)

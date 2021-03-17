@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use hdk3::{hash_path::path::Component, prelude::*};
 
@@ -16,16 +14,6 @@ pub(crate) fn get_path_links_on_path(path: &Path) -> IndexResult<Vec<Path>> {
         .map(|link| Ok(Path::try_from(&link.tag)?))
         .collect::<IndexResult<Vec<Path>>>()?;
     Ok(links)
-}
-
-/// Check if index depth is contained inside the libs configuration
-pub(crate) fn does_index_depth_contain(it: &IndexType) -> bool {
-    let time_index_depth = unwrap_time_index_depth();
-    if time_index_depth.contains(it) {
-        true
-    } else {
-        false
-    }
 }
 
 /// Find the overlapping path between two times and return vec of queries at given IndexTypes which still need to be performed
@@ -85,7 +73,7 @@ pub(crate) fn find_divergent_time(
         ));
     };
     //Check if index depth is allowed and make hour comparison
-    if does_index_depth_contain(&IndexType::Hour) {
+    if TIME_INDEX_DEPTH.contains(&IndexType::Hour) {
         if from.hour() == until.hour() {
             path.push(Component::from(
                 TimeIndex(from.hour() as u32).get_sb()?.bytes().to_owned(),
@@ -103,7 +91,7 @@ pub(crate) fn find_divergent_time(
         ));
     };
     //Check if index depth is allowed and make minute comparison
-    if does_index_depth_contain(&IndexType::Minute) {
+    if TIME_INDEX_DEPTH.contains(&IndexType::Minute) {
         if from.minute() == until.minute() {
             path.push(Component::from(
                 TimeIndex(from.minute() as u32).get_sb()?.bytes().to_owned(),
@@ -115,7 +103,7 @@ pub(crate) fn find_divergent_time(
         return Ok((path, vec![IndexType::Minute, IndexType::Second]));
     };
     //Check if index depth is allowed and make second comparison
-    if does_index_depth_contain(&IndexType::Second) {
+    if TIME_INDEX_DEPTH.contains(&IndexType::Second) {
         if from.second() == until.second() {
             path.push(Component::from(
                 TimeIndex(from.second() as u32).get_sb()?.bytes().to_owned(),
@@ -166,24 +154,21 @@ pub(crate) fn add_time_index_to_path<
         IndexType::Month => from_timestamp.month(),
         IndexType::Day => from_timestamp.day(),
         IndexType::Hour => {
-            let time_index_depth = unwrap_time_index_depth();
-            if time_index_depth.contains(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 from_timestamp.hour()
             } else {
                 return Ok(());
             }
         }
         IndexType::Minute => {
-            let time_index_depth = unwrap_time_index_depth();
-            if time_index_depth.contains(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 from_timestamp.minute()
             } else {
                 return Ok(());
             }
         }
         IndexType::Second => {
-            let time_index_depth = unwrap_time_index_depth();
-            if time_index_depth.contains(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 from_timestamp.second()
             } else {
                 return Ok(());
@@ -199,11 +184,11 @@ pub(crate) fn add_time_index_to_path<
 /// Determine correct chunk position for a given timestamp
 pub(crate) fn get_index_for_timestamp(time: DateTime<Utc>) -> Index {
     let now = std::time::Duration::new(time.timestamp() as u64, time.timestamp_subsec_nanos());
-    let time_frame = unwrap_chunk_interval_lock();
+    let time_frame = MAX_CHUNK_INTERVAL.as_nanos() as f64;
 
-    let chunk_index_start = (now.as_nanos() as f64 / time_frame.as_nanos() as f64).floor() as u64;
-    let chunk_start = time_frame.as_nanos() as u64 * chunk_index_start;
-    let chunk_end = time_frame.as_nanos() as u64 * (chunk_index_start + 1_u64);
+    let chunk_index_start = (now.as_nanos() as f64 / time_frame).floor() as u64;
+    let chunk_start = time_frame as u64 * chunk_index_start;
+    let chunk_end = time_frame as u64 * (chunk_index_start + 1_u64);
 
     let chunk_start = std::time::Duration::from_nanos(chunk_start);
     let chunk_end = std::time::Duration::from_nanos(chunk_end);
@@ -211,21 +196,6 @@ pub(crate) fn get_index_for_timestamp(time: DateTime<Utc>) -> Index {
         from: chunk_start,
         until: chunk_end,
     }
-}
-
-/// Get read access to chunk_interval lib var
-pub(crate) fn unwrap_chunk_interval_lock() -> Duration {
-    *MAX_CHUNK_INTERVAL
-        .read()
-        .expect("Could not read from MAX_CHUNK_INTERVAL")
-}
-
-/// Get read access to time index depth lib var
-pub(crate) fn unwrap_time_index_depth() -> Vec<IndexType> {
-    TIME_INDEX_DEPTH
-        .read()
-        .expect("Could not read from TIME_INDEX_DEPTH")
-        .clone()
 }
 
 mod util_tests {

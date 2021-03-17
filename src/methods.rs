@@ -6,12 +6,11 @@ use hdk3::{hash_path::path::Component, prelude::*};
 use crate::errors::{IndexError, IndexResult};
 use crate::search::{find_newest_time_path, find_paths_for_time_span};
 use crate::utils::{
-    add_time_index_to_path, get_index_for_timestamp, get_time_path, unwrap_chunk_interval_lock,
+    add_time_index_to_path, get_index_for_timestamp, get_time_path,
 };
-use crate::EntryChunkIndex;
 use crate::{
     entries::{Index, IndexIndex, IndexType, TimeIndex},
-    IndexableEntry,
+    IndexableEntry, EntryChunkIndex, MAX_CHUNK_INTERVAL
 };
 
 impl Index {
@@ -23,13 +22,12 @@ impl Index {
                 "Time index cannot start in the future",
             ));
         };
-        let max_chunk_interval = unwrap_chunk_interval_lock();
-        if self.until - self.from != max_chunk_interval {
+        if self.until - self.from != *MAX_CHUNK_INTERVAL {
             return Err(IndexError::RequestError(
                 "Time index should use period equal to max interval set by DNA",
             ));
         };
-        if self.from.as_millis() % max_chunk_interval.as_millis() != 0 {
+        if self.from.as_millis() % MAX_CHUNK_INTERVAL.as_millis() != 0 {
             return Err(IndexError::RequestError(
                 "Time index does not follow index interval ordering",
             ));

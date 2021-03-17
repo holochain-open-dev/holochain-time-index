@@ -20,3 +20,9 @@ pub enum IndexError {
 }
 
 pub type IndexResult<T> = Result<T, IndexError>;
+
+impl From<IndexError> for String {
+    fn from(e: IndexError) -> Self {
+        format!("{}", e)
+    }
+}

@@ -1,12 +1,7 @@
 {
     "name": "time-index-test",
     "uuid": "",
-    "properties": {
-      "test": {
-        "enforce_spam_limit": 20,
-        "max_chunk_interval": 100000
-      }  
-    },
+    "properties": {},
     "zomes": {
       "time_index": {
         "wasm_path": "../target/wasm32-unknown-unknown/release/testing_zome.wasm"

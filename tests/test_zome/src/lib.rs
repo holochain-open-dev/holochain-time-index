@@ -86,3 +86,9 @@ pub fn get_most_recent_indexes(
             .map_err(|err| WasmError::Zome(String::from(err)))?,
     )
 }
+
+#[hdk_extern]
+pub fn remove_index(address: EntryHash) -> ExternResult<()> {
+    debug!("Got request");
+    Ok(hc_time_index::remove_index(address).map_err(|err| WasmError::Zome(String::from(err)))?)
+}

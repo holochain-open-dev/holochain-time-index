@@ -2,28 +2,27 @@ use hdk3::prelude::*;
 
 use crate::entries::Index;
 use crate::errors::{IndexError, IndexResult};
-use crate::utils::unwrap_chunk_interval_lock;
+use crate::MAX_CHUNK_INTERVAL;
 
 impl Index {
     pub fn validate_chunk(&self) -> IndexResult<()> {
-        let max_chunk_interval = unwrap_chunk_interval_lock();
         //TODO: incorrect error type being used here
         if self.from > sys_time()? {
             return Err(IndexError::RequestError(
                 "Time chunk cannot start in the future",
             ));
         };
-        if self.until - self.from != max_chunk_interval {
+        if self.until - self.from != *MAX_CHUNK_INTERVAL {
             return Err(IndexError::RequestError(
                 "Time chunk should use period equal to max interval set by DNA",
             ));
         };
-        if self.until - self.from != max_chunk_interval {
+        if self.until - self.from != *MAX_CHUNK_INTERVAL {
             return Err(IndexError::RequestError(
                 "Time chunk should use period equal to max interval set by DNA",
             ));
         };
-        if self.from.as_millis() % max_chunk_interval.as_millis() != 0 {
+        if self.from.as_millis() % MAX_CHUNK_INTERVAL.as_millis() != 0 {
             return Err(IndexError::RequestError(
                 "Time chunk does not follow chunk interval ordering",
             ));

@@ -1,7 +1,7 @@
 {
     "name": "time-index-test",
     "uuid": "",
-    "properties": null,
+    "properties": {},
     "zomes": {
       "time_index": {
         "wasm_path": "../target/wasm32-unknown-unknown/release/testing_zome.wasm"

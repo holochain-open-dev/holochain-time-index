@@ -3,7 +3,8 @@ use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{IndexIndex, IndexType, WrappedPath};
 use crate::errors::{IndexError, IndexResult};
-use crate::utils::{does_index_depth_contain, find_divergent_time, get_path_links_on_path};
+use crate::utils::{find_divergent_time, get_path_links_on_path};
+use crate::TIME_INDEX_DEPTH;
 
 /// Find all paths which exist between from & until timestamps with starting index
 pub(crate) fn find_paths_for_time_span(
@@ -50,7 +51,7 @@ fn get_next_level_path(
             NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(1, 1, 1),
         ),
         IndexType::Hour => {
-            if does_index_depth_contain(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 (
                     NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
                         from.hour(),
@@ -68,7 +69,7 @@ fn get_next_level_path(
             }
         }
         IndexType::Minute => {
-            if does_index_depth_contain(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 (
                     NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
                         from.hour(),
@@ -86,7 +87,7 @@ fn get_next_level_path(
             }
         }
         IndexType::Second => {
-            if does_index_depth_contain(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 (
                     NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
                         from.hour(),
@@ -150,21 +151,21 @@ pub(crate) fn find_newest_time_path<
         IndexType::Month => (),
         IndexType::Day => (),
         IndexType::Hour => {
-            if does_index_depth_contain(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 ()
             } else {
                 return Ok(path);
             }
         }
         IndexType::Minute => {
-            if does_index_depth_contain(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 ()
             } else {
                 return Ok(path);
             }
         }
         IndexType::Second => {
-            if does_index_depth_contain(&time_index) {
+            if TIME_INDEX_DEPTH.contains(&time_index) {
                 ()
             } else {
                 return Ok(path);

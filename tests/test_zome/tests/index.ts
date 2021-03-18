@@ -1,7 +1,8 @@
 import { Orchestrator, Config, InstallAgentsHapps } from '@holochain/tryorama'
 import { TransportConfigType, ProxyAcceptConfig, ProxyConfigType } from '@holochain/tryorama'
-import { HoloHash } from '@holochain/conductor-api'
+import { HoloHash, InstallAppRequest } from '@holochain/conductor-api'
 import path from 'path'
+import * as msgpack from '@msgpack/msgpack';
 
 // Set up a Conductor configuration using the handy `Conductor.config` helper.
 // Read the docs for more on configuration.
@@ -35,8 +36,6 @@ const installation: InstallAgentsHapps = [
 // * scenario middleware, including integration with other test harnesses
 const orchestrator = new Orchestrator()
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(() => resolve(), ms));
-
 orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   // Declare two players using the previously specified config, nicknaming them "alice" and "bob"
   // note that the first argument to players is just an array conductor configs that that will
@@ -44,16 +43,21 @@ orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   const [alice, bob] = await s.players([conductorConfig, conductorConfig])
 
   console.log("Init alice happ");
-  // install your happs into the conductors and destructuring the returned happ data using the same
-  // array structure as you created in your installation array.
-  const [
-    [alice_happ],
-  ] = await alice.installAgentsHapps(installation)
-  // const [
-  //   [bob_sc_happ],
-  // ] = await bob.installAgentsHapps(installation)
+  const req: InstallAppRequest = {
+    installed_app_id: `my_app:1234`, // my_app with some unique installed id value
+    agent_key: await alice.adminWs().generateAgentPubKey(),
+    dnas: [{
+      path: path.join(__dirname, '../time-index.dna.gz'),
+      nick: `my_cell_nick`,
+      properties: {
+        "enforce_spam_limit": 20,
+        "max_chunk_interval": 100000
+      },
+      //membrane_proof: Array.from(msgpack.encode({role:"steward", signature:"..."})),
+    }]
+  }
+  const alice_happ = await alice._installHapp(req)
   console.log("Agents init'd\n");
-  sleep(10000);
 
   //Index entry
   let index = await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: new Date().toISOString()})

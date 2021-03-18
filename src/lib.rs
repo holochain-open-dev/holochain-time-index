@@ -72,7 +72,6 @@
 extern crate lazy_static;
 
 use chrono::{DateTime, Utc};
-use std::sync::RwLock;
 use std::time::Duration;
 
 use hdk3::prelude::*;
@@ -95,12 +94,18 @@ pub use traits::IndexableEntry;
 
 use entries::{Index, IndexType};
 use errors::{IndexError, IndexResult};
-use utils::unwrap_chunk_interval_lock;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EntryChunkIndex {
     pub index: Index,
     pub links: Links,
+}
+
+/// Configuration object that should be set in your host DNA's properties 
+#[derive(Serialize, Deserialize, Debug, SerializedBytes)]
+pub struct IndexConfiguration {
+    pub enforce_spam_limit: usize,
+    pub max_chunk_interval: usize
 }
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
@@ -113,9 +118,8 @@ pub fn get_indexes_for_time_span(
     _limit: Option<usize>,
     link_tag: Option<LinkTag>,
 ) -> IndexResult<Vec<EntryChunkIndex>> {
-    let max_chunk_interval = unwrap_chunk_interval_lock();
     //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
+    if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
         return Err(IndexError::RequestError(
             "Time frame is smaller than index interval",
         ));
@@ -134,9 +138,8 @@ pub fn get_links_for_time_span(
     _limit: Option<usize>,
     link_tag: Option<LinkTag>,
 ) -> IndexResult<Vec<Link>> {
-    let max_chunk_interval = unwrap_chunk_interval_lock();
     //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
+    if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
         return Err(IndexError::RequestError(
             "Time frame is smaller than index interval",
         ));
@@ -157,9 +160,8 @@ pub fn get_links_and_load_for_time_span<
     _limit: Option<usize>,
     link_tag: Option<LinkTag>,
 ) -> IndexResult<Vec<T>> {
-    let max_chunk_interval = unwrap_chunk_interval_lock();
     //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() < max_chunk_interval.as_millis() as i64 {
+    if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
         return Err(IndexError::RequestError(
             "Time frame is smaller than index interval",
         ));
@@ -243,24 +245,33 @@ pub fn get_paths_for_path(path: Path, link_tag: Option<LinkTag>) -> IndexResult<
 // these vars should instead be grabbed from DNA properies. For now these props can just be init with below values.
 lazy_static! {
     //Point at which links are considered spam and linked expressions are not allowed
-    pub static ref ENFORCE_SPAM_LIMIT: RwLock<usize> = RwLock::new(20);
-    //Max duration of given time chunk
-    pub static ref MAX_CHUNK_INTERVAL: RwLock<Duration> = RwLock::new(Duration::new(100, 0));
+    pub static ref ENFORCE_SPAM_LIMIT: usize = {
+        debug!("Attempting to get spam limit from: {:#?}", zome_info());
+        let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
+        let properties = IndexConfiguration::try_from(host_dna_config)
+            .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");
+        properties.enforce_spam_limit
+    };
+    pub static ref MAX_CHUNK_INTERVAL: Duration = {
+        let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
+        let properties = IndexConfiguration::try_from(host_dna_config)
+            .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");
+        Duration::from_millis(properties.max_chunk_interval as u64)
+    };
     //Determine what depth of time index should be hung from
-    pub static ref TIME_INDEX_DEPTH: RwLock<Vec<entries::IndexType>> = RwLock::new(
-        if *MAX_CHUNK_INTERVAL.read().expect("Could not get read for MAX_CHUNK_INTERVAL") < Duration::from_secs(1) {
+    pub static ref TIME_INDEX_DEPTH: Vec<entries::IndexType> = 
+        if *MAX_CHUNK_INTERVAL < Duration::from_secs(1) {
             vec![
                 IndexType::Second,
                 IndexType::Minute,
                 IndexType::Hour,
                 IndexType::Day,
             ]
-        } else if *MAX_CHUNK_INTERVAL.read().expect("Could not get read for MAX_CHUNK_INTERVAL") < Duration::from_secs(60) {
+        } else if *MAX_CHUNK_INTERVAL < Duration::from_secs(60) {
             vec![IndexType::Minute, IndexType::Hour, IndexType::Day]
-        } else if *MAX_CHUNK_INTERVAL.read().expect("Could not get read for MAX_CHUNK_INTERVAL") < Duration::from_secs(3600) {
+        } else if *MAX_CHUNK_INTERVAL < Duration::from_secs(3600) {
             vec![IndexType::Hour, IndexType::Day]
         } else {
             vec![IndexType::Day]
-        }
-    );
+        };
 }

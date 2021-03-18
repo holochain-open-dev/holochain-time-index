@@ -26,7 +26,6 @@ entry_defs![Path::entry_def(), TestEntry::entry_def()];
 
 #[hdk_extern]
 pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
-    debug!("DNA init with properties: {:#?}", zome_info());
     Ok(InitCallbackResult::Pass)
 }
 

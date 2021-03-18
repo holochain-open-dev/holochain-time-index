@@ -56,7 +56,7 @@
 //! - [x] Basic performance optimizations for search functions
 //! - [ ] Advanced Performance optimizations for search functions
 //! - [ ] Advanced testing of DNA functioning
-//! - [ ] Lib's variables derived from host DNA properties (blocked until HDK support)
+//! - [x] Lib's variables derived from host DNA properties (blocked until HDK support)
 //! - [ ] Validation functions for links made at indexes
 //! - [ ] Validation functions for time b-tree shape & structure
 //! - [ ] Limit of returned links in public functions
@@ -101,11 +101,11 @@ pub struct EntryChunkIndex {
     pub links: Links,
 }
 
-/// Configuration object that should be set in your host DNA's properties 
+/// Configuration object that should be set in your host DNA's properties
 #[derive(Serialize, Deserialize, Debug, SerializedBytes)]
 pub struct IndexConfiguration {
     pub enforce_spam_limit: usize,
-    pub max_chunk_interval: usize
+    pub max_chunk_interval: usize,
 }
 
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
@@ -220,6 +220,26 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
 ) -> IndexResult<()> {
     let index = methods::create_for_timestamp(index, data.entry_time())?;
     create_link(index.hash()?, data.hash()?, link_tag)?;
+    create_link(data.hash()?, index.hash()?, LinkTag::new("time_path"))?;
+    Ok(())
+}
+
+/// Removes a given indexed entry from the time tree
+pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
+    let time_path = get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?.into_inner();
+    let time_path = time_path.first().ok_or(IndexError::RequestError(
+        "Index entry should always have time path link. Are you sure this entry has been indexed?",
+    ))?;
+    let path_links = get_links(time_path.target.clone(), None)?.into_inner();
+    let path_links: Vec<Link> = path_links
+        .into_iter()
+        .filter(|link| link.target == indexed_entry)
+        .collect();
+    let path_link = path_links.first().ok_or(IndexError::RequestError(
+        "Index entry should always have time path link. Are you sure this entry has been indexed?",
+    ))?;
+    delete_link(path_link.create_link_hash.to_owned())?;
+
     Ok(())
 }
 
@@ -259,7 +279,7 @@ lazy_static! {
         Duration::from_millis(properties.max_chunk_interval as u64)
     };
     //Determine what depth of time index should be hung from
-    pub static ref TIME_INDEX_DEPTH: Vec<entries::IndexType> = 
+    pub static ref TIME_INDEX_DEPTH: Vec<entries::IndexType> =
         if *MAX_CHUNK_INTERVAL < Duration::from_secs(1) {
             vec![
                 IndexType::Second,

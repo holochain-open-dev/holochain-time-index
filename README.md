@@ -58,7 +58,7 @@ Using the above methods its possible to build an application which places an emp
 - [ ] Basic performance optimizations for local vec iteration 
 - [ ] Advanced Performance optimizations for search functions
 - [ ] Advanced testing of DNA functioning
-- [ ] Lib's variables derived from host DNA properties (blocked until HDK support)
+- [x] Lib's variables derived from host DNA properties (blocked until HDK support)
 - [ ] Validation functions for links made at indexes
 - [ ] Validation functions for time b-tree shape & structure
 - [ ] Limit of returned links in public functions
@@ -68,4 +68,3 @@ Using the above methods its possible to build an application which places an emp
 - You cannot index at time before UNIX epoch (00:00:00 UTC on 1 January 1970)
 - Limit & interval variables must be static throughout lifetime of DHT
 - Calling `get_indexes_between()` with a large from & until value will take a long time to return
-- It is currently not possible to set library variables by adding appropriate variables to DHT properties. This crate must instead be forked, altered and then used inside your DNA.

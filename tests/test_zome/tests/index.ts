@@ -19,8 +19,8 @@ const conductorConfig = Config.gen();
 
 const orchestrator = new Orchestrator()
 
-orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
-  const [alice, bob] = await s.players([conductorConfig, conductorConfig])
+orchestrator.registerScenario("test simple index", async (s, t) => {
+  const [alice] = await s.players([conductorConfig])
 
   console.log("Init alice happ");
   const req: InstallAppRequest = {
@@ -73,6 +73,46 @@ orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   let results_betwee2 = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
   console.log("Got results between", results_betwee2);
   t.deepEqual(results_betwee2.length, 1);
+})
+
+orchestrator.registerScenario("test delete", async (s, t) => {
+  const [alice] = await s.players([conductorConfig])
+
+  console.log("Init alice happ");
+  const req: InstallAppRequest = {
+    installed_app_id: `my_app:1234`, // my_app with some unique installed id value
+    agent_key: await alice.adminWs().generateAgentPubKey(),
+    dnas: [{
+      path: path.join(__dirname, '../time-index.dna.gz'),
+      nick: `my_cell_nick`,
+      properties: {
+        "enforce_spam_limit": 20,
+        "max_chunk_interval": 100000
+      },
+      //membrane_proof: Array.from(msgpack.encode({role:"steward", signature:"..."})),
+    }]
+  }
+  const alice_happ = await alice._installHapp(req)
+  console.log("Agents init'd\n");
+
+  //Index entry
+  await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: new Date().toISOString()})
+
+  //Create another index for one day ago
+  var dateOffset = (24*60*60*1000); //1 day ago
+  var date = new Date();
+  date.setTime(date.getTime() - dateOffset);
+
+  let rb = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  console.log("Got results between", rb);
+  t.deepEqual(rb.length, 1);
+  console.log("deleting entry at", rb[0].links[0].target);
+  
+  await alice_happ.cells[0].call("time_index", "remove_index", rb[0].links[0].target)
+
+  let rb_pd = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  console.log("Got results between post delete", rb_pd);
+  t.deepEqual(rb_pd[0].links.length, 0);
 })
 
 const report = orchestrator.run()

@@ -5,12 +5,10 @@ use hdk3::{hash_path::path::Component, prelude::*};
 
 use crate::errors::{IndexError, IndexResult};
 use crate::search::{find_newest_time_path, find_paths_for_time_span};
-use crate::utils::{
-    add_time_index_to_path, get_index_for_timestamp, get_time_path,
-};
+use crate::utils::{add_time_index_to_path, get_index_for_timestamp, get_time_path};
 use crate::{
     entries::{Index, IndexIndex, IndexType, TimeIndex},
-    IndexableEntry, EntryChunkIndex, MAX_CHUNK_INTERVAL
+    EntryChunkIndex, IndexableEntry, MAX_CHUNK_INTERVAL,
 };
 
 impl Index {

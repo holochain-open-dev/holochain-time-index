@@ -4,8 +4,6 @@ import { HoloHash, InstallAppRequest } from '@holochain/conductor-api'
 import path from 'path'
 import * as msgpack from '@msgpack/msgpack';
 
-// Set up a Conductor configuration using the handy `Conductor.config` helper.
-// Read the docs for more on configuration.
 const network = {
     transport_pool: [{
       type: TransportConfigType.Proxy,
@@ -19,27 +17,9 @@ const network = {
 };
 const conductorConfig = Config.gen();
 
-// create an InstallAgentsHapps array with your DNAs to tell tryorama what
-// to install into the conductor.
-const installation: InstallAgentsHapps = [
-  // agent 0
-  [
-    // happ 0
-    [path.join("../time-index.dna.gz"),]
-  ]
-]
-
-// Instatiate your test's orchestrator.
-// It comes loaded with a lot default behavior which can be overridden, including:
-// * custom conductor startup
-// * custom test result reporting
-// * scenario middleware, including integration with other test harnesses
 const orchestrator = new Orchestrator()
 
 orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
-  // Declare two players using the previously specified config, nicknaming them "alice" and "bob"
-  // note that the first argument to players is just an array conductor configs that that will
-  // be used to spin up the conductor processes which are returned in a matching array.
   const [alice, bob] = await s.players([conductorConfig, conductorConfig])
 
   console.log("Init alice happ");
@@ -60,7 +40,7 @@ orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   console.log("Agents init'd\n");
 
   //Index entry
-  let index = await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: new Date().toISOString()})
+  await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index", created: new Date().toISOString()})
 
   var dateOffset = 10000; //10 seconds
   var date = new Date();
@@ -95,9 +75,5 @@ orchestrator.registerScenario("test simple chunk fn's", async (s, t) => {
   t.deepEqual(results_betwee2.length, 1);
 })
 
-// Run all registered scenarios as a final step, and gather the report,
-// if you set up a reporter
 const report = orchestrator.run()
-
-// Note: by default, there will be no report
 console.log(report)

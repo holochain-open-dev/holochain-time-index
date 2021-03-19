@@ -219,26 +219,27 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
     link_tag: LT,
 ) -> IndexResult<()> {
     let index = methods::create_for_timestamp(index, data.entry_time())?;
+    //Create link from end of time path to entry that should be indexed
     create_link(index.hash()?, data.hash()?, link_tag)?;
+    //Create link from entry that should be indexed back to time tree so tree links can be found when starting from entry
     create_link(data.hash()?, index.hash()?, LinkTag::new("time_path"))?;
     Ok(())
 }
 
 /// Removes a given indexed entry from the time tree
 pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
-    let time_path = get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?.into_inner();
-    let time_path = time_path.first().ok_or(IndexError::RequestError(
-        "Index entry should always have time path link. Are you sure this entry has been indexed?",
-    ))?;
-    let path_links = get_links(time_path.target.clone(), None)?.into_inner();
-    let path_links: Vec<Link> = path_links
-        .into_iter()
-        .filter(|link| link.target == indexed_entry)
-        .collect();
-    let path_link = path_links.first().ok_or(IndexError::RequestError(
-        "Index entry should always have time path link. Are you sure this entry has been indexed?",
-    ))?;
-    delete_link(path_link.create_link_hash.to_owned())?;
+    let time_paths = get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?.into_inner();
+    for time_path in time_paths {
+        let path_links = get_links(time_path.target.clone(), None)?.into_inner();
+        let path_links: Vec<Link> = path_links
+            .into_iter()
+            .filter(|link| link.target == indexed_entry)
+            .collect();
+        for path_link in path_links {
+            debug!("Deleting link: {:#?}", path_link.create_link_hash.to_owned());
+            delete_link(path_link.create_link_hash.to_owned())?;
+        };
+    };
 
     Ok(())
 }
@@ -260,13 +261,11 @@ pub fn get_paths_for_path(path: Path, link_tag: Option<LinkTag>) -> IndexResult<
     }
 }
 
-// Configuration
-// TODO: using rwlock and setter functions does not work in HC since each zome call fn is sandboxed and not a long running bin
-// these vars should instead be grabbed from DNA properies. For now these props can just be init with below values.
+// Library configuration setup
 lazy_static! {
     //Point at which links are considered spam and linked expressions are not allowed
     pub static ref ENFORCE_SPAM_LIMIT: usize = {
-        debug!("Attempting to get spam limit from: {:#?}", zome_info());
+        debug!("Attempting to set spam limit from: {:#?}", zome_info());
         let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
         let properties = IndexConfiguration::try_from(host_dna_config)
             .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");

@@ -73,7 +73,7 @@ pub fn get_current_index(index: String) -> IndexResult<Option<Path>> {
     ordered_indexes.reverse();
 
     match ordered_indexes.pop() {
-        Some(link) => match get(link.target, GetOptions::content())? {
+        Some(link) => match get(link.target, GetOptions::latest())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
                 IndexError::InternalError("Expected element to contain app entry data"),
             )?)),
@@ -106,8 +106,9 @@ pub fn get_latest_index(index: String) -> IndexResult<Option<Path>> {
     let mut ordered_indexes: Vec<Link> = permutation.apply_slice(&indexes[..]);
     ordered_indexes.reverse();
 
+    //TODO: dont error out if cant find link target; just use next link
     match ordered_indexes.pop() {
-        Some(link) => match get(link.target, GetOptions::content())? {
+        Some(link) => match get(link.target, GetOptions::latest())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
                 IndexError::InternalError("Expected element to contain app entry data"),
             )?)),
@@ -206,23 +207,36 @@ pub(crate) fn get_links_and_load_for_time_span<
             .map(|link| {
                 let path = Path::try_from(&link.tag)?;
                 let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
+                debug!("Found link: {:#?}", links);
                 Ok(links)
             })
             .collect::<IndexResult<Vec<Vec<Link>>>>()?
             .into_iter()
             .flatten()
-            .map(|link| match get(link.target, GetOptions::content())? {
-                Some(chunk) => {
-                    Ok(chunk
-                        .entry()
-                        .to_app_option()?
-                        .ok_or(IndexError::InternalError(
-                            "Expected element to contain app entry data",
-                        ))?)
+            .map(|link| {
+                match get(link.target, GetOptions::latest())? {
+                    Some(chunk) => {
+                        Ok(Some(chunk
+                            .entry()
+                            .to_app_option::<T>()?
+                            .ok_or(IndexError::InternalError(
+                                "Expected element to contain app entry data",
+                            ))?))
+                    }
+                    None => Ok(None),
                 }
-                None => Err(IndexError::InternalError(
-                    "Expected link target to contain point to an entry",
-                )),
+            })
+            .filter_map(|val| {
+                if val.is_ok() {
+                    let val = val.unwrap();
+                    if val.is_some() {
+                        Some(Ok(val.unwrap()))
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(Err(val.err().unwrap()))
+                }
             })
             .collect::<IndexResult<Vec<T>>>()?;
         out.append(&mut indexes);

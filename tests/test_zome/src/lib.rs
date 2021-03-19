@@ -47,10 +47,24 @@ pub struct GetAddressesSinceInput {
 }
 
 #[hdk_extern]
-pub fn get_addresses_between(
+pub fn get_indexes_for_time_span(
     input: GetAddressesSinceInput,
 ) -> ExternResult<Vec<hc_time_index::EntryChunkIndex>> {
     Ok(hc_time_index::get_indexes_for_time_span(
+        input.index,
+        input.from,
+        input.until,
+        input.limit,
+        input.link_tag,
+    )
+    .map_err(|err| WasmError::Zome(String::from(err)))?)
+}
+
+#[hdk_extern]
+pub fn get_links_for_time_span(
+    input: GetAddressesSinceInput,
+) -> ExternResult<Vec<Link>> {
+    Ok(hc_time_index::get_links_for_time_span(
         input.index,
         input.from,
         input.until,
@@ -89,6 +103,5 @@ pub fn get_most_recent_indexes(
 
 #[hdk_extern]
 pub fn remove_index(address: EntryHash) -> ExternResult<()> {
-    debug!("Got request");
     Ok(hc_time_index::remove_index(address).map_err(|err| WasmError::Zome(String::from(err)))?)
 }

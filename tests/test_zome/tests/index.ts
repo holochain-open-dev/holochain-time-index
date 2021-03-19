@@ -61,7 +61,7 @@ orchestrator.registerScenario("test simple index", async (s, t) => {
   date.setTime(date.getTime() - dateOffset);
   await alice_happ.cells[0].call("time_index", "index_entry", {title: "A test index3", created: date.toISOString()})
 
-  let results_between = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  let results_between = await alice_happ.cells[0].call("time_index", "get_indexes_for_time_span", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
   console.log("Got results between", results_between);
   t.deepEqual(results_between.length, 2);
 
@@ -70,7 +70,7 @@ orchestrator.registerScenario("test simple index", async (s, t) => {
   var date = new Date();
   date.setTime(date.getTime() - dateOffset);
 
-  let results_betwee2 = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  let results_betwee2 = await alice_happ.cells[0].call("time_index", "get_indexes_for_time_span", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
   console.log("Got results between", results_betwee2);
   t.deepEqual(results_betwee2.length, 1);
 })
@@ -103,16 +103,16 @@ orchestrator.registerScenario("test delete", async (s, t) => {
   var date = new Date();
   date.setTime(date.getTime() - dateOffset);
 
-  let rb = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  let rb = await alice_happ.cells[0].call("time_index", "get_indexes_for_time_span", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
   console.log("Got results between", rb);
   t.deepEqual(rb.length, 1);
   console.log("deleting entry at", rb[0].links[0].target);
   
   await alice_happ.cells[0].call("time_index", "remove_index", rb[0].links[0].target)
 
-  let rb_pd = await alice_happ.cells[0].call("time_index", "get_addresses_between", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
+  let rb_pd = await alice_happ.cells[0].call("time_index", "get_links_for_time_span", {index: "test_index", from: date.toISOString(), until: new Date().toISOString(), limit: 10})
   console.log("Got results between post delete", rb_pd);
-  t.deepEqual(rb_pd[0].links.length, 0);
+  t.deepEqual(rb_pd.length, 0);
 })
 
 const report = orchestrator.run()

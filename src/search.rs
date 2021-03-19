@@ -12,12 +12,13 @@ pub(crate) fn find_paths_for_time_span(
     until: DateTime<Utc>,
     index: String,
 ) -> IndexResult<Vec<Path>> {
-    //Determine and create the starting path based on index and divergence between timestamps
+    //Start path with index
     let mut paths = vec![Component::from(
         IndexIndex(index).get_sb()?.bytes().to_owned(),
     )];
-    let (mut path, index_level) = find_divergent_time(from, until)?;
-    paths.append(&mut path);
+    //Determine and create the starting path based on index and divergence between timestamps
+    let (mut found_path, index_level) = find_divergent_time(from, until)?;
+    paths.append(&mut found_path);
     let mut paths = vec![Path::from(paths)];
     //debug!("Path before query starts: {:#?} starting with: {:?}", paths, index_level);
 

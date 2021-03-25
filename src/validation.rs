@@ -1,4 +1,4 @@
-use hdk3::prelude::*;
+use hdk::prelude::*;
 
 use crate::entries::Index;
 use crate::errors::{IndexError, IndexResult};

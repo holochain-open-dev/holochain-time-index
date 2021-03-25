@@ -18,7 +18,7 @@ opt-level = "z"
 opt-level = "z"
 
 [dependencies]
-hdk3 = { git = "https://github.com/holochain/holochain.git", rev = "fd8049a" }
+hdk = "0.0.100"
 
 #derive_more = "0"
 serde = "1"

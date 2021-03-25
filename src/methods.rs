@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
-use hdk3::{hash_path::path::Component, prelude::*};
+use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::errors::{IndexError, IndexResult};
 use crate::search::{find_newest_time_path, find_paths_for_time_span};

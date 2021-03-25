@@ -3,7 +3,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use chrono::{NaiveDate, NaiveDateTime};
-use hdk3::{
+use hdk::{
     hash_path::path::{Component, Path},
     prelude::{SerializedBytes, UnsafeBytes},
 };

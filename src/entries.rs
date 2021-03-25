@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use hdk3::prelude::*;
+use hdk::prelude::*;
 
 #[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Index {

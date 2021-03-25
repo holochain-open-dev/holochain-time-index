@@ -1,5 +1,5 @@
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, Timelike, Utc};
-use hdk3::{hash_path::path::Component, prelude::*};
+use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{IndexIndex, IndexType, WrappedPath};
 use crate::errors::{IndexError, IndexResult};

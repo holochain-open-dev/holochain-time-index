@@ -128,7 +128,7 @@ pub(crate) fn get_indexes_for_time_span(
     link_tag: Option<LinkTag>,
 ) -> IndexResult<Vec<EntryChunkIndex>> {
     let paths = find_paths_for_time_span(from, until, index)?;
-    debug!("Got paths after search: {:#?}", paths);
+    //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<EntryChunkIndex> = vec![];
 
     for path in paths {
@@ -164,7 +164,6 @@ pub(crate) fn get_links_for_time_span(
     let paths = find_paths_for_time_span(from, until, index)?;
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<Link> = vec![];
-
     for path in paths {
         let paths = path.children()?.into_inner();
         let mut indexes = paths
@@ -207,7 +206,6 @@ pub(crate) fn get_links_and_load_for_time_span<
             .map(|link| {
                 let path = Path::try_from(&link.tag)?;
                 let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
-                debug!("Found link: {:#?}", links);
                 Ok(links)
             })
             .collect::<IndexResult<Vec<Vec<Link>>>>()?

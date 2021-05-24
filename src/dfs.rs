@@ -48,10 +48,12 @@ impl std::fmt::Debug for GraphTimeItem {
 }
 
 impl SearchState {
+    /// Create a new petgraph::StableDiGraph
     pub(crate) fn new() -> SearchState {
         SearchState(StableDiGraph::new())
     }
 
+    /// Given an *empty* graph populate it with paths
     pub(crate) fn populate_from_paths(
         &mut self,
         paths: Vec<Path>,
@@ -79,11 +81,12 @@ impl SearchState {
         Ok(())
     }
 
+    /// Given a graph and node position add paths onto node where paths only get added if they contain more components than value of depth
     pub(crate) fn populate_from_paths_forward(
         &mut self,
         paths: Vec<Path>,
         depth: usize,
-        offset: NodeIndex,
+        parent_node: NodeIndex,
     ) -> Result<NodeIndex, IndexError> {
         let mut first_node_index = NodeIndex::new(0);
         for (path_i, path) in paths.iter().enumerate() {
@@ -99,7 +102,7 @@ impl SearchState {
                         first_node_index = i1;
                     };
                     self.0.add_edge(
-                        offset,
+                        parent_node,
                         i1,
                         (),
                     );
@@ -109,6 +112,7 @@ impl SearchState {
         Ok(first_node_index)
     }
 
+    /// Given paths add them to graph and add edge from given position pointing to each newly added path
     pub (crate) fn populate_next_nodes_from_position(&mut self, paths: Vec<Path>, position: NodeIndex) -> Result<Vec<NodeIndex>, IndexError> {
         let mut added_indexes = vec![];
         for path in paths {
@@ -122,6 +126,7 @@ impl SearchState {
         Ok(added_indexes)
     }
 
+    /// Holochain debug dot representation of graph state
     pub(crate) fn display_dot_repr(&self) {
         debug!("{:#?}", Dot::new(&self.0));
     }

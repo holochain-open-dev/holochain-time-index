@@ -32,7 +32,7 @@ pub(crate) fn find_paths_for_time_span(
     );
 
     for level in index_level {
-        paths = get_next_level_path_bfs(paths, &from, &until, level.clone())?;
+        paths = get_next_level_path_bfs(paths, &from, &until, &level)?;
         debug!(
             "Now have paths: {:#?} at level: {:#?}",
             paths
@@ -55,77 +55,13 @@ pub(crate) fn get_next_level_path_dfs(
     mut paths: Vec<Path>,
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,
-    time_index: IndexType,
+    index_type: &IndexType,
     order: &Order,
 ) -> IndexResult<Vec<Path>> {
     //Get the naivedatetime representation for from & until
-    let (from_time, until_time) = match time_index {
-        IndexType::Year => (
-            NaiveDate::from_ymd(from.year(), 1, 1).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), 1, 1).and_hms(1, 1, 1),
-        ),
-        IndexType::Month => (
-            NaiveDate::from_ymd(from.year(), from.month(), 1).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), until.month(), 1).and_hms(1, 1, 1),
-        ),
-        IndexType::Day => (
-            NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(1, 1, 1),
-        ),
-        IndexType::Hour => {
-            if INDEX_DEPTH.contains(&time_index) {
-                (
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
-                        from.hour(),
-                        1,
-                        1,
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
-                        until.hour(),
-                        1,
-                        1,
-                    ),
-                )
-            } else {
-                return Ok(paths);
-            }
-        }
-        IndexType::Minute => {
-            if INDEX_DEPTH.contains(&time_index) {
-                (
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
-                        from.hour(),
-                        from.minute(),
-                        1,
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
-                        until.hour(),
-                        until.minute(),
-                        1,
-                    ),
-                )
-            } else {
-                return Ok(paths);
-            }
-        }
-        IndexType::Second => {
-            if INDEX_DEPTH.contains(&time_index) {
-                (
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
-                        from.hour(),
-                        from.minute(),
-                        from.second(),
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
-                        until.hour(),
-                        until.minute(),
-                        until.second(),
-                    ),
-                )
-            } else {
-                return Ok(paths);
-            }
-        }
+    let (from_time, until_time) = match get_naivedatetime(from, until, index_type) {
+        Some(tuple) => tuple,
+        None => return Ok(paths)
     };
 
     paths.sort_by(|patha, pathb| {
@@ -180,13 +116,12 @@ pub(crate) fn get_next_level_path_dfs(
     lower_paths.sort_by(|a, b| {
         let path_wrapped = WrappedPath(a.clone());
         let path_wrapped_b = WrappedPath(b.clone());
-        let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.try_into();
+        let chrono_path_a: IndexResult<NaiveDateTime> = path_wrapped.try_into();
         let chrono_path_b: IndexResult<NaiveDateTime> = path_wrapped_b.try_into();
-        //TODO: add asc support here
-        chrono_path_b
-            .unwrap()
-            .partial_cmp(&chrono_path.unwrap())
-            .unwrap()
+        match order {
+            Order::Desc => chrono_path_b.unwrap().partial_cmp(&chrono_path_a.unwrap()).unwrap(),
+            Order::Asc => chrono_path_a.unwrap().partial_cmp(&chrono_path_b.unwrap()).unwrap(),
+        }
     });
     out.append(&mut lower_paths);
     Ok(out)
@@ -200,76 +135,12 @@ pub(crate) fn get_next_level_path_bfs(
     paths: Vec<Path>,
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,
-    time_index: IndexType,
+    index_type: &IndexType,
 ) -> IndexResult<Vec<Path>> {
     //Get the naivedatetime representation for from & until
-    let (from_time, until_time) = match time_index {
-        IndexType::Year => (
-            NaiveDate::from_ymd(from.year(), 1, 1).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), 1, 1).and_hms(1, 1, 1),
-        ),
-        IndexType::Month => (
-            NaiveDate::from_ymd(from.year(), from.month(), 1).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), until.month(), 1).and_hms(1, 1, 1),
-        ),
-        IndexType::Day => (
-            NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(1, 1, 1),
-        ),
-        IndexType::Hour => {
-            if INDEX_DEPTH.contains(&time_index) {
-                (
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
-                        from.hour(),
-                        1,
-                        1,
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
-                        until.hour(),
-                        1,
-                        1,
-                    ),
-                )
-            } else {
-                return Ok(paths);
-            }
-        }
-        IndexType::Minute => {
-            if INDEX_DEPTH.contains(&time_index) {
-                (
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
-                        from.hour(),
-                        from.minute(),
-                        1,
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
-                        until.hour(),
-                        until.minute(),
-                        1,
-                    ),
-                )
-            } else {
-                return Ok(paths);
-            }
-        }
-        IndexType::Second => {
-            if INDEX_DEPTH.contains(&time_index) {
-                (
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
-                        from.hour(),
-                        from.minute(),
-                        from.second(),
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
-                        until.hour(),
-                        until.minute(),
-                        until.second(),
-                    ),
-                )
-            } else {
-                return Ok(paths);
-            }
-        }
+    let (from_time, until_time) = match get_naivedatetime(from, until, index_type) {
+        Some(tuple) => tuple,
+        None => return Ok(paths)
     };
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
@@ -302,6 +173,77 @@ pub(crate) fn get_next_level_path_bfs(
         out.append(&mut lower_paths);
     }
     Ok(out)
+}
+
+fn get_naivedatetime(from: &DateTime<Utc>, until: &DateTime<Utc>, index_type: &IndexType) -> Option<(NaiveDateTime, NaiveDateTime)> {
+    match index_type {
+        IndexType::Year => Some((
+            NaiveDate::from_ymd(from.year(), 1, 1).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(until.year(), 1, 1).and_hms(1, 1, 1),
+        )),
+        IndexType::Month => Some((
+            NaiveDate::from_ymd(from.year(), from.month(), 1).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(until.year(), until.month(), 1).and_hms(1, 1, 1),
+        )),
+        IndexType::Day => Some((
+            NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(1, 1, 1),
+            NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(1, 1, 1),
+        )),
+        IndexType::Hour => {
+            if INDEX_DEPTH.contains(&index_type) {
+                Some((
+                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                        from.hour(),
+                        1,
+                        1,
+                    ),
+                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                        until.hour(),
+                        1,
+                        1,
+                    ),
+                ))
+            } else {
+                None
+            }
+        }
+        IndexType::Minute => {
+            if INDEX_DEPTH.contains(&index_type) {
+                Some((
+                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                        from.hour(),
+                        from.minute(),
+                        1,
+                    ),
+                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                        until.hour(),
+                        until.minute(),
+                        1,
+                    ),
+                ))
+            } else {
+                None
+            }
+        }
+        IndexType::Second => {
+            if INDEX_DEPTH.contains(&index_type) {
+                Some((
+                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                        from.hour(),
+                        from.minute(),
+                        from.second(),
+                    ),
+                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                        until.hour(),
+                        until.minute(),
+                        until.second(),
+                    ),
+                ))
+            } else {
+                None
+            }
+        }
+    }
 }
 
 /// Tries to find the newest time period one level down from current path position

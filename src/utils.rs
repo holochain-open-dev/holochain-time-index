@@ -18,8 +18,8 @@ pub(crate) fn get_path_links_on_path(path: &Path) -> IndexResult<Vec<Path>> {
 
 /// Find the overlapping path between two times and return vec of queries at given IndexTypes which still need to be performed
 pub(crate) fn find_divergent_time(
-    from: DateTime<Utc>,
-    until: DateTime<Utc>,
+    from: &DateTime<Utc>,
+    until: &DateTime<Utc>,
 ) -> IndexResult<(Vec<Component>, Vec<IndexType>)> {
     //Make year comparison
     let mut path = if from.year() == until.year() {

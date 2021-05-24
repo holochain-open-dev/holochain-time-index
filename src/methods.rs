@@ -203,8 +203,8 @@ pub(crate) fn get_links_for_time_span(
                     .collect();
                 out.append(&mut indexes);
             }
-            out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
-            out.reverse();
+            //out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+            //out.reverse();
             out
         }
         SearchStrategy::Dfs => {
@@ -245,7 +245,7 @@ pub(crate) fn get_links_for_time_span(
                     IndexType::Second => 6,
                 };
                 //Get the next paths for the current path
-                paths = get_next_level_path_dfs(paths, &from, &until, level.clone(), &order)?;
+                paths = get_next_level_path_dfs(paths, &from, &until, &level, &order)?;
                 debug!(
                     "Now have paths: {:#?} at level: {:#?}",
                     paths
@@ -321,7 +321,7 @@ pub(crate) fn get_links_for_time_span(
                         _ => return Err(IndexError::InternalError("Expected path to be length 2-7"))
                     };
                     debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
-                    paths = get_next_level_path_dfs(vec![node], &from, &until, index_type, &order)?;
+                    paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order)?;
                     debug!("Got next paths: {:#?}", paths
                         .clone()
                         .into_iter()
@@ -341,7 +341,11 @@ pub(crate) fn get_links_for_time_span(
             search_state.display_dot_repr();
 
             if break_at_limit {
-                out[0..limit.unwrap()].to_owned()
+                if out.len() > limit.unwrap() {
+                    out[0..limit.unwrap()].to_owned()
+                } else {
+                    out
+                }
             } else {
                 out
             }
@@ -395,8 +399,8 @@ pub(crate) fn get_links_and_load_for_time_span<
             .collect::<IndexResult<Vec<T>>>()?;
         out.append(&mut indexes);
     }
-    out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
-    out.reverse();
+    //out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
+    //out.reverse();
 
     Ok(out)
 }

@@ -7,6 +7,7 @@ use crate::utils::{find_divergent_time, get_path_links_on_path};
 use crate::{Order, INDEX_DEPTH};
 
 /// Find all paths which exist between from & until timestamps with starting index
+/// This function is executed in BFS maner and will return all paths between from/until bounds
 pub(crate) fn find_paths_for_time_span(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
@@ -47,7 +48,9 @@ pub(crate) fn find_paths_for_time_span(
 }
 
 /// For a given index type get the naivedatetime representation of from & until and use to compare against path components
-/// found as children to supplied path. Will only return paths where path timeframe is inbetween from & until.
+/// found as children to supplied path. Will only return paths where path timeframe is inbetween from & until. This function 
+/// is executed in a dfs maner and will choose one path (dependant on order; highest (Order::Desc) or lowest value (Order::Asc))
+/// And then get the next set of paths from the choosen path
 pub(crate) fn get_next_level_path_dfs(
     mut paths: Vec<Path>,
     from: &DateTime<Utc>,
@@ -179,6 +182,7 @@ pub(crate) fn get_next_level_path_dfs(
         let path_wrapped_b = WrappedPath(b.clone());
         let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.try_into();
         let chrono_path_b: IndexResult<NaiveDateTime> = path_wrapped_b.try_into();
+        //TODO: add asc support here
         chrono_path_b
             .unwrap()
             .partial_cmp(&chrono_path.unwrap())
@@ -190,6 +194,8 @@ pub(crate) fn get_next_level_path_dfs(
 
 /// For a given index type get the naivedatetime representation of from & until and use to compare against path components
 /// found as children to supplied path. Will only return paths where path timeframe is inbetween from & until.
+/// This function is executed in bfs maner and is exhastive in that it will get all children for each path and 
+/// will append each child path to the resulting vec
 pub(crate) fn get_next_level_path_bfs(
     paths: Vec<Path>,
     from: &DateTime<Utc>,

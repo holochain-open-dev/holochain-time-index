@@ -76,16 +76,16 @@ use std::time::Duration;
 
 use hdk::prelude::*;
 
+mod bfs;
+mod dfs;
 pub mod errors;
 mod impls;
-mod search;
-mod utils;
-mod validation;
-mod dfs;
-mod bfs;
-mod traits;
 /// Public methods exposed by lib
 pub mod methods;
+mod search;
+mod traits;
+mod utils;
+mod validation;
 
 /// All holochain entries used by this crate
 pub mod entries;
@@ -181,7 +181,7 @@ pub fn get_links_and_load_for_time_span<
     };
 
     Ok(methods::get_links_and_load_for_time_span::<T>(
-        from, until, index, link_tag, strategy, limit
+        from, until, index, link_tag, strategy, limit,
     )?)
 }
 

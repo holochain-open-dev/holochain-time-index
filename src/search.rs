@@ -6,7 +6,11 @@ use crate::errors::{IndexError, IndexResult};
 use crate::utils::get_path_links_on_path;
 use crate::INDEX_DEPTH;
 
-pub (crate) fn get_naivedatetime(from: &DateTime<Utc>, until: &DateTime<Utc>, index_type: &IndexType) -> Option<(NaiveDateTime, NaiveDateTime)> {
+pub(crate) fn get_naivedatetime(
+    from: &DateTime<Utc>,
+    until: &DateTime<Utc>,
+    index_type: &IndexType,
+) -> Option<(NaiveDateTime, NaiveDateTime)> {
     match index_type {
         IndexType::Year => Some((
             NaiveDate::from_ymd(from.year(), 1, 1).and_hms(1, 1, 1),

@@ -3,8 +3,8 @@ use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{IndexIndex, IndexType, WrappedPath};
 use crate::errors::IndexResult;
-use crate::utils::find_divergent_time;
 use crate::search::get_naivedatetime;
+use crate::utils::find_divergent_time;
 
 /// Find all paths which exist between from & until timestamps with starting index
 /// This function is executed in BFS maner and will return all paths between from/until bounds
@@ -18,7 +18,7 @@ pub(crate) fn find_paths_for_time_span(
         IndexIndex(index).get_sb()?.bytes().to_owned(),
     )];
     //Determine and create the starting path based on index and divergence between timestamps
-    let (mut found_path, index_level) = find_divergent_time(from, until)?;
+    let (mut found_path, index_level) = find_divergent_time(&from, &until)?;
     paths.append(&mut found_path);
     let mut paths = vec![Path::from(paths)];
     // debug!(
@@ -49,7 +49,7 @@ pub(crate) fn find_paths_for_time_span(
 
 /// For a given index type get the naivedatetime representation of from & until and use to compare against path components
 /// found as children to supplied path. Will only return paths where path timeframe is inbetween from & until.
-/// This function is executed in bfs maner and is exhastive in that it will get all children for each path and 
+/// This function is executed in bfs maner and is exhastive in that it will get all children for each path and
 /// will append each child path to the resulting vec
 pub(crate) fn get_next_level_path_bfs(
     paths: Vec<Path>,
@@ -60,7 +60,7 @@ pub(crate) fn get_next_level_path_bfs(
     //Get the naivedatetime representation for from & until
     let (from_time, until_time) = match get_naivedatetime(from, until, index_type) {
         Some(tuple) => tuple,
-        None => return Ok(paths)
+        None => return Ok(paths),
     };
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime

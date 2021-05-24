@@ -1,21 +1,17 @@
 use hdk::hash_path::path::{Component, Path};
 use hdk::prelude::*;
-use petgraph::{
-    dot::Dot,
-    graph::NodeIndex,
-    stable_graph::{StableDiGraph},
-};
+use petgraph::{dot::Dot, graph::NodeIndex, stable_graph::StableDiGraph};
 use std::convert::TryFrom;
 
 use crate::entries::{Index, IndexIndex, TimeIndex};
 use crate::errors::IndexError;
 
-pub (crate) mod methods;
+pub(crate) mod methods;
 
 #[derive(Debug)]
 pub(crate) struct SearchState(pub StableDiGraph<GraphTimeItem, ()>);
 
-pub (crate) struct GraphTimeItem(pub Vec<Component>);
+pub(crate) struct GraphTimeItem(pub Vec<Component>);
 
 impl std::fmt::Debug for GraphTimeItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -103,11 +99,7 @@ impl SearchState {
                     if path_i == 0 {
                         first_node_index = i1;
                     };
-                    self.0.add_edge(
-                        parent_node,
-                        i1,
-                        (),
-                    );
+                    self.0.add_edge(parent_node, i1, ());
                 }
             }
         }
@@ -115,13 +107,15 @@ impl SearchState {
     }
 
     /// Given paths add them to graph and add edge from given position pointing to each newly added path
-    pub (crate) fn populate_next_nodes_from_position(&mut self, paths: Vec<Path>, position: NodeIndex) -> Result<Vec<NodeIndex>, IndexError> {
+    pub(crate) fn populate_next_nodes_from_position(
+        &mut self,
+        paths: Vec<Path>,
+        position: NodeIndex,
+    ) -> Result<Vec<NodeIndex>, IndexError> {
         let mut added_indexes = vec![];
         for path in paths {
             let components: Vec<Component> = path.clone().into();
-            let i1 = self
-                .0
-                .add_node(GraphTimeItem(components));
+            let i1 = self.0.add_node(GraphTimeItem(components));
             added_indexes.push(i1);
             self.0.add_edge(position, i1, ());
         }

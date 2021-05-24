@@ -5,8 +5,9 @@ use hdk::{hash_path::path::Component, prelude::*};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::Dfs;
 
-use crate::dfs::SearchState;
-use crate::search::{find_newest_time_path, find_paths_for_time_span, get_next_level_path_dfs};
+use crate::dfs::{SearchState, methods::get_next_level_path_dfs};
+use crate::bfs::find_paths_for_time_span;
+use crate::search::{find_newest_time_path};
 use crate::utils::{
     add_time_index_to_path, find_divergent_time, get_index_for_timestamp, get_time_path,
 };
@@ -172,7 +173,6 @@ pub(crate) fn get_links_for_time_span(
     strategy: SearchStrategy,
     limit: Option<usize>,
 ) -> IndexResult<Vec<Link>> {
-    debug!("Getting links for time span");
     let order = if from > until {
         Order::Desc
     } else {
@@ -229,7 +229,7 @@ pub(crate) fn get_links_for_time_span(
             );
 
             //Populate our search state Graph with found paths
-            search_state.populate_from_paths(paths.clone(), 0)?;
+            search_state.populate_from_paths(&paths, 0)?;
 
             //Iterate over remaining search levels to get next paths in DFS maner
             //There will only ever be one path here since we are getting the common root path for from/until
@@ -361,7 +361,15 @@ pub(crate) fn get_links_and_load_for_time_span<
     until: DateTime<Utc>,
     index: String,
     link_tag: Option<LinkTag>,
+    strategy: SearchStrategy,
+    limit: Option<usize>,
 ) -> IndexResult<Vec<T>> {
+    let order = if from > until {
+        Order::Desc
+    } else {
+        Order::Asc
+    };
+
     let paths = find_paths_for_time_span(from, until, index)?;
     let mut out: Vec<T> = vec![];
 

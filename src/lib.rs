@@ -81,15 +81,15 @@ mod impls;
 mod search;
 mod utils;
 mod validation;
-
+mod dfs;
+mod bfs;
+mod traits;
 /// Public methods exposed by lib
 pub mod methods;
 
 /// All holochain entries used by this crate
 pub mod entries;
 
-mod dfs;
-mod traits;
 /// Trait to impl on entries that you want to add to time index
 pub use traits::IndexableEntry;
 
@@ -169,8 +169,9 @@ pub fn get_links_and_load_for_time_span<
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
-    _limit: Option<usize>,
     link_tag: Option<LinkTag>,
+    strategy: SearchStrategy,
+    limit: Option<usize>,
 ) -> IndexResult<Vec<T>> {
     //Check that timeframe specified is greater than the INDEX_DEPTH.
     if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
@@ -180,7 +181,7 @@ pub fn get_links_and_load_for_time_span<
     };
 
     Ok(methods::get_links_and_load_for_time_span::<T>(
-        from, until, index, link_tag,
+        from, until, index, link_tag, strategy, limit
     )?)
 }
 

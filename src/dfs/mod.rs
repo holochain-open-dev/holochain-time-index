@@ -10,10 +10,12 @@ use std::convert::TryFrom;
 use crate::entries::{Index, IndexIndex, TimeIndex};
 use crate::errors::IndexError;
 
+pub (crate) mod methods;
+
 #[derive(Debug)]
 pub(crate) struct SearchState(pub StableDiGraph<GraphTimeItem, ()>);
 
-pub struct GraphTimeItem(pub Vec<Component>);
+pub (crate) struct GraphTimeItem(pub Vec<Component>);
 
 impl std::fmt::Debug for GraphTimeItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -56,7 +58,7 @@ impl SearchState {
     /// Given an *empty* graph populate it with paths
     pub(crate) fn populate_from_paths(
         &mut self,
-        paths: Vec<Path>,
+        paths: &Vec<Path>,
         depth: usize,
     ) -> Result<(), IndexError> {
         for (path_i, path) in paths.iter().enumerate() {

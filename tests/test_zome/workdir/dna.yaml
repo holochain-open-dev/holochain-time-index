@@ -1,0 +1,14 @@
+---
+manifest_version: 1
+name: "time-index-test"
+uid: 00000000-0000-0000-0000-000000000000
+properties: {
+  "enforce_spam_limit": 20,
+  "max_chunk_interval": 100000,
+  "active_agent_duration_s": 300,
+  "enable_signals": true,
+  "enable_time_index": true,
+}
+zomes: 
+  - name: testing_zome
+    bundled: ../target/wasm32-unknown-unknown/release/testing_zome.wasm

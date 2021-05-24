@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
-use hdk3::hash_path::path::Path;
-use hdk3::prelude::*;
+use hdk::hash_path::path::Path;
+use hdk::prelude::*;
 
 use hc_time_index::*;
 
@@ -33,7 +33,7 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
 pub fn index_entry(entry: TestEntry) -> ExternResult<()> {
     create_entry(&entry)?;
     hc_time_index::index_entry(String::from("test_index"), entry, LinkTag::new("test"))
-        .map_err(|err| WasmError::Zome(String::from(err)))?;
+        .map_err(|err| WasmError::Host(String::from(err)))?;
     Ok(())
 }
 
@@ -57,21 +57,20 @@ pub fn get_indexes_for_time_span(
         input.limit,
         input.link_tag,
     )
-    .map_err(|err| WasmError::Zome(String::from(err)))?)
+    .map_err(|err| WasmError::Host(String::from(err)))?)
 }
 
 #[hdk_extern]
-pub fn get_links_for_time_span(
-    input: GetAddressesSinceInput,
-) -> ExternResult<Vec<Link>> {
+pub fn get_links_for_time_span(input: GetAddressesSinceInput) -> ExternResult<Vec<Link>> {
     Ok(hc_time_index::get_links_for_time_span(
         input.index,
         input.from,
         input.until,
-        input.limit,
         input.link_tag,
+        hc_time_index::SearchStrategy::Dfs,
+        Some(10),
     )
-    .map_err(|err| WasmError::Zome(String::from(err)))?)
+    .map_err(|err| WasmError::Host(String::from(err)))?)
 }
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug)]
@@ -87,7 +86,7 @@ pub fn get_current_addresses(
 ) -> ExternResult<Option<EntryChunkIndex>> {
     Ok(
         hc_time_index::get_current_index(input.index, input.link_tag, input.limit)
-            .map_err(|err| WasmError::Zome(String::from(err)))?,
+            .map_err(|err| WasmError::Host(String::from(err)))?,
     )
 }
 
@@ -97,11 +96,11 @@ pub fn get_most_recent_indexes(
 ) -> ExternResult<Option<EntryChunkIndex>> {
     Ok(
         hc_time_index::get_most_recent_indexes(input.index, input.link_tag, input.limit)
-            .map_err(|err| WasmError::Zome(String::from(err)))?,
+            .map_err(|err| WasmError::Host(String::from(err)))?,
     )
 }
 
 #[hdk_extern]
 pub fn remove_index(address: EntryHash) -> ExternResult<()> {
-    Ok(hc_time_index::remove_index(address).map_err(|err| WasmError::Zome(String::from(err)))?)
+    Ok(hc_time_index::remove_index(address).map_err(|err| WasmError::Host(String::from(err)))?)
 }

@@ -4,18 +4,18 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "test": "WASM_LOG=error TRYORAMA_LOG_LEVEL=error RUST_LOG=error RUST_BACKTRACE=1 TRYORAMA_HOLOCHAIN_PATH=\"holochain\" ts-node index.ts",
-    "build-test": "cd ../ && CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown && dna-util -c time-index.dna.workdir && cd tests && npm test"
+    "test": "WASM_LOG=debug TRYORAMA_LOG_LEVEL=debug RUST_LOG=debug RUST_BACKTRACE=1 TRYORAMA_HOLOCHAIN_PATH=\"holochain\" ts-node index.ts",
+    "build-test": "cd ../ && CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown && hc dna pack workdir && cd tests && npm test"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@holochain/tryorama": "0.4.0-dev.4",
+    "@holochain/tryorama": "0.4.2",
     "@types/lodash": "^4.14.158",
     "@types/node": "^14.0.14",
     "lodash": "^4.17.19",
     "tape": "^5.0.1",
     "ts-node": "^8.10.2",
-    "typescript": "^3.9.6"
+    "typescript": "^4.2.4"
   }
 }

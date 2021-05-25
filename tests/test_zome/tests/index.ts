@@ -64,8 +64,15 @@ orchestrator.registerScenario("test get index dfs", async (s, t) => {
   var date = new Date();
   date.setTime(date.getTime() - dateOffset);
 
-  let results_between = await alice_happ.cells[0].call("testing_zome", "get_links_for_time_span", {index: "test_index", from: twoMonthsAgo.toISOString(), until: new Date().toISOString(), limit: 10})
+  //Get results in descending order
+  let results_between = await alice_happ.cells[0].call("testing_zome", "get_links_for_time_span", {index: "test_index", from: new Date().toISOString(), until: twoMonthsAgo.toISOString(), limit: 10})
   console.log("Got results", results_between);
+  t.equal(results_between.length, 5)
+
+  //Get results in ascending order
+  let asc_results = await alice_happ.cells[0].call("testing_zome", "get_links_for_time_span", {index: "test_index", from: twoMonthsAgo.toISOString(), until: new Date().toISOString(), limit: 10})
+  console.log("Got results", asc_results);
+  t.equal(asc_results.length, 5)
 })
 
 // orchestrator.registerScenario("test simple index", async (s, t) => {

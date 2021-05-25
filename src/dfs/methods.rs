@@ -29,15 +29,15 @@ pub(crate) fn make_dfs_search(
     let (mut found_path, index_level) = find_divergent_time(&from, &until)?;
     paths.append(&mut found_path);
     let mut paths = vec![Path::from(paths)];
-    debug!(
-        "Path before dfs query starts: {:#?} index levels: {:?}",
-        paths
-            .clone()
-            .into_iter()
-            .map(|path| WrappedPath(path.clone()))
-            .collect::<Vec<WrappedPath>>(),
-        index_level
-    );
+    // debug!(
+    //     "Path before dfs query starts: {:#?} index levels: {:?}",
+    //     paths
+    //         .clone()
+    //         .into_iter()
+    //         .map(|path| WrappedPath(path.clone()))
+    //         .collect::<Vec<WrappedPath>>(),
+    //     index_level
+    // );
 
     //Populate our search state Graph with found paths
     search_state.populate_from_paths(&paths, 0)?;
@@ -57,15 +57,17 @@ pub(crate) fn make_dfs_search(
         };
         //Get the next paths for the current path
         paths = get_next_level_path_dfs(paths, &from, &until, &level, &order)?;
-        debug!(
-            "Now have paths: {:#?} at level: {:#?}",
-            paths
-                .clone()
-                .into_iter()
-                .map(|path| WrappedPath(path))
-                .collect::<Vec<WrappedPath>>(),
-            level
-        );
+        // debug!(
+        //     "Now have paths: {:#?} at level: {:#?}",
+        //     paths
+        //         .clone()
+        //         .into_iter()
+        //         .map(|path| WrappedPath(path))
+        //         .collect::<Vec<WrappedPath>>(),
+        //     level
+        // );
+        //search_state.display_dot_repr();
+
         //Save the retreived paths to the Graph for later use
         //Search node returned so we can add the next path links from the first path item in previous recursion
         search_node =
@@ -134,24 +136,24 @@ pub(crate) fn make_dfs_search(
             );
             let node_components: Vec<Component> = node.clone().into();
             let index_type = match node_components.len() {
-                2 => IndexType::Year,
-                3 => IndexType::Month,
-                4 => IndexType::Day,
-                5 => IndexType::Hour,
-                6 => IndexType::Minute,
-                7 => IndexType::Second,
+                1 => IndexType::Year,
+                2 => IndexType::Month,
+                3 => IndexType::Day,
+                4 => IndexType::Hour,
+                5 => IndexType::Minute,
+                6 => IndexType::Second,
                 _ => return Err(IndexError::InternalError("Expected path to be length 2-7")),
             };
             debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
             paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order)?;
-            debug!(
-                "Got next paths: {:#?}",
-                paths
-                    .clone()
-                    .into_iter()
-                    .map(|path| WrappedPath(path.clone()))
-                    .collect::<Vec<WrappedPath>>()
-            );
+            // debug!(
+            //     "Got next paths: {:#?}",
+            //     paths
+            //         .clone()
+            //         .into_iter()
+            //         .map(|path| WrappedPath(path.clone()))
+            //         .collect::<Vec<WrappedPath>>()
+            // );
             //Add the founds paths as indexes on the current node item
             let mut added_indexes = search_state
                 .populate_next_nodes_from_position(paths.clone(), next_node.unwrap())?;
@@ -198,16 +200,14 @@ pub(crate) fn get_next_level_path_dfs(
         let chrono_path_a: NaiveDateTime = WrappedPath(patha.clone()).try_into().unwrap();
         let chrono_path_b: NaiveDateTime = WrappedPath(pathb.clone()).try_into().unwrap();
         match order {
-            Order::Desc => chrono_path_b.partial_cmp(&chrono_path_a).unwrap(),
-            Order::Asc => chrono_path_a.partial_cmp(&chrono_path_b).unwrap(),
+            Order::Desc => chrono_path_a.partial_cmp(&chrono_path_b).unwrap(),
+            Order::Asc => chrono_path_b.partial_cmp(&chrono_path_a).unwrap(),
         }
     });
 
     let chosen_path = paths.pop().unwrap();
-    //debug!("Using path: {:#?}", WrappedPath(chosen_path.clone()));
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
-    let mut out = vec![];
     let mut lower_paths: Vec<Path> = chosen_path
         .children()?
         .into_inner()
@@ -217,7 +217,8 @@ pub(crate) fn get_next_level_path_dfs(
             if path.is_ok() {
                 let path = path.unwrap();
                 let path_wrapped = WrappedPath(path.clone());
-                let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.try_into();
+                let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.clone().try_into();
+                //debug!("Got path in lowerpaths fn: {:#?}. {:#?}. {:#?}/{:#?}. {:#?}", path_wrapped, chrono_path, from_time, until_time, index_type);
                 if chrono_path.is_err() {
                     return Some(Err(chrono_path.err().unwrap()));
                 };
@@ -259,6 +260,5 @@ pub(crate) fn get_next_level_path_dfs(
                 .unwrap(),
         }
     });
-    out.append(&mut lower_paths);
-    Ok(out)
+    Ok(lower_paths)
 }

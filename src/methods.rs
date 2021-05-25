@@ -153,11 +153,13 @@ pub(crate) fn get_indexes_for_time_span(
             .collect::<IndexResult<Vec<EntryChunkIndex>>>()?;
         out.append(&mut indexes);
     }
-    //TODO: do sort based on path value
-    //out.sort_by(|a, b| a.index.from.partial_cmp(&b.index.from).unwrap());
-    //out.reverse();
+    //NOTE: untested logic
+    let timestamps = out.clone().into_iter().map(|val| val.index.from).collect::<Vec<Duration>>();
+    let permutation = permutation::sort_by(&timestamps[..], |a, b| a.partial_cmp(&b).unwrap());
+    let mut ordered_indexes: Vec<EntryChunkIndex> = permutation.apply_slice(&out[..]);
+    ordered_indexes.reverse();
 
-    Ok(out)
+    Ok(ordered_indexes)
 }
 
 /// Get all links that exist for some time period between from -> until
@@ -200,8 +202,8 @@ pub(crate) fn get_links_for_time_span(
                 out.append(&mut indexes);
             }
             //TODO: do sort based on path value
-            //out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
-            //out.reverse();
+            out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+            out.reverse();
             out
         }
         SearchStrategy::Dfs => make_dfs_search(index, &from, &until, &order, limit, link_tag)?,
@@ -264,32 +266,39 @@ pub(crate) fn get_links_and_load_for_time_span<
                     .collect::<IndexResult<Vec<T>>>()?;
                 out.append(&mut indexes);
             }
-            //out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
-            //out.reverse();
+            out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
+            out.reverse();
 
             out
         }
-        SearchStrategy::Dfs => make_dfs_search(index, &from, &until, &order, limit, link_tag)?
-            .into_iter()
-            .map(|link| match get(link.target, GetOptions::latest())? {
-                Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
-                    IndexError::InternalError("Expected element to contain app entry data"),
-                )?)),
-                None => Ok(None),
-            })
-            .filter_map(|val| {
-                if val.is_ok() {
-                    let val = val.unwrap();
-                    if val.is_some() {
-                        Some(Ok(val.unwrap()))
+        SearchStrategy::Dfs => {
+            let mut results = make_dfs_search(index, &from, &until, &order, limit, link_tag)?
+                .into_iter()
+                .map(|link| match get(link.target, GetOptions::latest())? {
+                    Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
+                        IndexError::InternalError("Expected element to contain app entry data"),
+                    )?)),
+                    None => Ok(None),
+                })
+                .filter_map(|val| {
+                    if val.is_ok() {
+                        let val = val.unwrap();
+                        if val.is_some() {
+                            Some(Ok(val.unwrap()))
+                        } else {
+                            None
+                        }
                     } else {
-                        None
+                        Some(Err(val.err().unwrap()))
                     }
-                } else {
-                    Some(Err(val.err().unwrap()))
-                }
-            })
-            .collect::<IndexResult<Vec<T>>>()?,
+                })
+                .collect::<IndexResult<Vec<T>>>()?;
+
+            results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
+            results.reverse();
+
+            results
+        }
     })
 }
 

@@ -28,4 +28,3 @@ mut_static = "*"
 permutation = "0.2.5"
 thiserror = "1.0.24"
 petgraph = "*"
-uuid = {version="*", features=["v4", "wasm-bindgen"]}

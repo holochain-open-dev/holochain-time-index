@@ -127,7 +127,6 @@ pub fn get_indexes_for_time_span(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
-    _limit: Option<usize>,
     link_tag: Option<LinkTag>,
 ) -> IndexResult<Vec<EntryChunkIndex>> {
     //Check that timeframe specified is greater than the INDEX_DEPTH.
@@ -191,7 +190,6 @@ pub fn get_links_and_load_for_time_span<
 pub fn get_current_index(
     index: String,
     link_tag: Option<LinkTag>,
-    _limit: Option<usize>,
 ) -> IndexResult<Option<EntryChunkIndex>> {
     match methods::get_current_index(index)? {
         Some(index) => {
@@ -210,7 +208,6 @@ pub fn get_current_index(
 pub fn get_most_recent_indexes(
     index: String,
     link_tag: Option<LinkTag>,
-    _limit: Option<usize>,
 ) -> IndexResult<Option<EntryChunkIndex>> {
     let recent_index = methods::get_latest_index(index)?;
     match recent_index {

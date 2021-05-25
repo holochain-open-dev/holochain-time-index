@@ -76,26 +76,27 @@ use std::time::Duration;
 
 use hdk::prelude::*;
 
+mod bfs;
+mod dfs;
 pub mod errors;
 mod impls;
-mod search;
-mod utils;
-mod validation;
-
 /// Public methods exposed by lib
 pub mod methods;
+mod search;
+mod traits;
+mod utils;
+mod validation;
 
 /// All holochain entries used by this crate
 pub mod entries;
 
-mod traits;
 /// Trait to impl on entries that you want to add to time index
 pub use traits::IndexableEntry;
 
 use entries::{Index, IndexType};
 use errors::{IndexError, IndexResult};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EntryChunkIndex {
     pub index: Index,
     pub links: Links,
@@ -108,6 +109,17 @@ pub struct IndexConfiguration {
     pub max_chunk_interval: usize,
 }
 
+pub enum SearchStrategy {
+    Dfs,
+    Bfs,
+}
+
+#[derive(Debug)]
+pub(crate) enum Order {
+    Desc,
+    Asc,
+}
+
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
 /// TODO: would be cool to support DFS and BFS here
@@ -115,10 +127,9 @@ pub fn get_indexes_for_time_span(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
-    _limit: Option<usize>,
     link_tag: Option<LinkTag>,
 ) -> IndexResult<Vec<EntryChunkIndex>> {
-    //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
+    //Check that timeframe specified is greater than the INDEX_DEPTH.
     if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
         return Err(IndexError::RequestError(
             "Time frame is smaller than index interval",
@@ -135,18 +146,19 @@ pub fn get_links_for_time_span(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
-    _limit: Option<usize>,
     link_tag: Option<LinkTag>,
+    strategy: SearchStrategy,
+    limit: Option<usize>,
 ) -> IndexResult<Vec<Link>> {
-    //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
-        return Err(IndexError::RequestError(
-            "Time frame is smaller than index interval",
-        ));
-    };
+    // //Check that timeframe specified is greater than the INDEX_DEPTH.
+    // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
+    //     return Err(IndexError::RequestError(
+    //         "Time frame is smaller than index interval",
+    //     ));
+    // };
 
     Ok(methods::get_links_for_time_span(
-        from, until, index, link_tag,
+        index, from, until, link_tag, strategy, limit,
     )?)
 }
 
@@ -157,18 +169,19 @@ pub fn get_links_and_load_for_time_span<
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
-    _limit: Option<usize>,
     link_tag: Option<LinkTag>,
+    strategy: SearchStrategy,
+    limit: Option<usize>,
 ) -> IndexResult<Vec<T>> {
-    //Check that timeframe specified is greater than the TIME_INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
-        return Err(IndexError::RequestError(
-            "Time frame is smaller than index interval",
-        ));
-    };
+    // //Check that timeframe specified is greater than the INDEX_DEPTH.
+    // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
+    //     return Err(IndexError::RequestError(
+    //         "Time frame is smaller than index interval",
+    //     ));
+    // };
 
     Ok(methods::get_links_and_load_for_time_span::<T>(
-        from, until, index, link_tag,
+        from, until, index, link_tag, strategy, limit,
     )?)
 }
 
@@ -177,7 +190,6 @@ pub fn get_links_and_load_for_time_span<
 pub fn get_current_index(
     index: String,
     link_tag: Option<LinkTag>,
-    _limit: Option<usize>,
 ) -> IndexResult<Option<EntryChunkIndex>> {
     match methods::get_current_index(index)? {
         Some(index) => {
@@ -196,7 +208,6 @@ pub fn get_current_index(
 pub fn get_most_recent_indexes(
     index: String,
     link_tag: Option<LinkTag>,
-    _limit: Option<usize>,
 ) -> IndexResult<Option<EntryChunkIndex>> {
     let recent_index = methods::get_latest_index(index)?;
     match recent_index {
@@ -228,7 +239,8 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
 
 /// Removes a given indexed entry from the time tree
 pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
-    let time_paths = get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?.into_inner();
+    let time_paths =
+        get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?.into_inner();
     for time_path in time_paths {
         let path_links = get_links(time_path.target.clone(), None)?.into_inner();
         let path_links: Vec<Link> = path_links
@@ -236,10 +248,13 @@ pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
             .filter(|link| link.target == indexed_entry)
             .collect();
         for path_link in path_links {
-            debug!("Deleting link: {:#?}", path_link.create_link_hash.to_owned());
+            debug!(
+                "Deleting link: {:#?}",
+                path_link.create_link_hash.to_owned()
+            );
             delete_link(path_link.create_link_hash.to_owned())?;
-        };
-    };
+        }
+    }
 
     Ok(())
 }
@@ -278,7 +293,7 @@ lazy_static! {
         Duration::from_millis(properties.max_chunk_interval as u64)
     };
     //Determine what depth of time index should be hung from
-    pub static ref TIME_INDEX_DEPTH: Vec<entries::IndexType> =
+    pub static ref INDEX_DEPTH: Vec<entries::IndexType> =
         if *MAX_CHUNK_INTERVAL < Duration::from_secs(1) {
             vec![
                 IndexType::Second,
@@ -293,4 +308,9 @@ lazy_static! {
         } else {
             vec![IndexType::Day]
         };
+
+    pub static ref DEFAULT_INDEX_DEPTH: Vec<IndexType> = vec![IndexType::Second,
+        IndexType::Month,
+        IndexType::Year
+    ];
 }

@@ -3,12 +3,17 @@ use std::time::Duration;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk::{hash_path::path::Component, prelude::*};
 
-use crate::errors::{IndexError, IndexResult};
-use crate::search::{find_newest_time_path, find_paths_for_time_span};
+use crate::bfs::find_paths_for_time_span;
+use crate::dfs::methods::make_dfs_search;
+use crate::search::find_newest_time_path;
 use crate::utils::{add_time_index_to_path, get_index_for_timestamp, get_time_path};
 use crate::{
     entries::{Index, IndexIndex, IndexType, TimeIndex},
-    EntryChunkIndex, IndexableEntry, MAX_CHUNK_INTERVAL,
+    EntryChunkIndex, IndexableEntry, SearchStrategy, MAX_CHUNK_INTERVAL,
+};
+use crate::{
+    errors::{IndexError, IndexResult},
+    Order,
 };
 
 impl Index {
@@ -95,6 +100,7 @@ pub fn get_latest_index(index: String) -> IndexResult<Option<Path>> {
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Day)?;
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Hour)?;
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Minute)?;
+    let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Second)?;
 
     let indexes = time_path.children()?.into_inner();
     let ser_path = indexes
@@ -148,42 +154,61 @@ pub(crate) fn get_indexes_for_time_span(
             .collect::<IndexResult<Vec<EntryChunkIndex>>>()?;
         out.append(&mut indexes);
     }
-    out.sort_by(|a, b| a.index.from.partial_cmp(&b.index.from).unwrap());
-    out.reverse();
+    //NOTE: untested logic
+    let timestamps = out.clone().into_iter().map(|val| val.index.from).collect::<Vec<Duration>>();
+    let permutation = permutation::sort_by(&timestamps[..], |a, b| a.partial_cmp(&b).unwrap());
+    let mut ordered_indexes: Vec<EntryChunkIndex> = permutation.apply_slice(&out[..]);
+    ordered_indexes.reverse();
 
-    Ok(out)
+    Ok(ordered_indexes)
 }
 
 /// Get all links that exist for some time period between from -> until
 pub(crate) fn get_links_for_time_span(
+    index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
-    index: String,
     link_tag: Option<LinkTag>,
+    strategy: SearchStrategy,
+    limit: Option<usize>,
 ) -> IndexResult<Vec<Link>> {
-    let paths = find_paths_for_time_span(from, until, index)?;
-    //debug!("Got paths after search: {:#?}", paths);
-    let mut out: Vec<Link> = vec![];
-    for path in paths {
-        let paths = path.children()?.into_inner();
-        let mut indexes = paths
-            .clone()
-            .into_iter()
-            .map(|link| {
-                let path = Path::try_from(&link.tag)?;
-                let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
-                Ok(links)
-            })
-            .collect::<IndexResult<Vec<Vec<Link>>>>()?
-            .into_iter()
-            .flatten()
-            .collect();
-        out.append(&mut indexes);
-    }
-    out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
-    out.reverse();
+    let order = if from > until {
+        Order::Desc
+    } else {
+        Order::Asc
+    };
 
-    Ok(out)
+    Ok(match strategy {
+        SearchStrategy::Bfs => {
+            if limit.is_some() {
+                debug!("hc_time_index::get_links_for_time_span: WARNING: Limit not supported on Bfs strategy. All links between bounds will be retrieved and returned");
+            };
+            let paths = find_paths_for_time_span(from, until, index)?;
+            //debug!("Got paths after search: {:#?}", paths);
+            let mut out: Vec<Link> = vec![];
+            for path in paths {
+                let paths = path.children()?.into_inner();
+                let mut indexes = paths
+                    .clone()
+                    .into_iter()
+                    .map(|link| {
+                        let path = Path::try_from(&link.tag)?;
+                        let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
+                        Ok(links)
+                    })
+                    .collect::<IndexResult<Vec<Vec<Link>>>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                out.append(&mut indexes);
+            }
+            //TODO: do sort based on path value
+            out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+            out.reverse();
+            out
+        }
+        SearchStrategy::Dfs => make_dfs_search(index, &from, &until, &order, limit, link_tag)?,
+    })
 }
 
 /// Get all links that exist for some time period between from -> until
@@ -194,55 +219,88 @@ pub(crate) fn get_links_and_load_for_time_span<
     until: DateTime<Utc>,
     index: String,
     link_tag: Option<LinkTag>,
+    strategy: SearchStrategy,
+    limit: Option<usize>,
 ) -> IndexResult<Vec<T>> {
-    let paths = find_paths_for_time_span(from, until, index)?;
-    let mut out: Vec<T> = vec![];
+    let order = if from > until {
+        Order::Desc
+    } else {
+        Order::Asc
+    };
 
-    for path in paths {
-        let paths = path.children()?.into_inner();
-        let mut indexes = paths
-            .clone()
-            .into_iter()
-            .map(|link| {
-                let path = Path::try_from(&link.tag)?;
-                let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
-                Ok(links)
-            })
-            .collect::<IndexResult<Vec<Vec<Link>>>>()?
-            .into_iter()
-            .flatten()
-            .map(|link| {
-                match get(link.target, GetOptions::latest())? {
-                    Some(chunk) => {
-                        Ok(Some(chunk
-                            .entry()
-                            .to_app_option::<T>()?
-                            .ok_or(IndexError::InternalError(
-                                "Expected element to contain app entry data",
-                            ))?))
-                    }
+    Ok(match strategy {
+        SearchStrategy::Bfs => {
+            let paths = find_paths_for_time_span(from, until, index)?;
+            let mut out: Vec<T> = vec![];
+
+            for path in paths {
+                let paths = path.children()?.into_inner();
+                let mut indexes = paths
+                    .clone()
+                    .into_iter()
+                    .map(|link| {
+                        let path = Path::try_from(&link.tag)?;
+                        let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
+                        Ok(links)
+                    })
+                    .collect::<IndexResult<Vec<Vec<Link>>>>()?
+                    .into_iter()
+                    .flatten()
+                    .map(|link| match get(link.target, GetOptions::latest())? {
+                        Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
+                            IndexError::InternalError("Expected element to contain app entry data"),
+                        )?)),
+                        None => Ok(None),
+                    })
+                    .filter_map(|val| {
+                        if val.is_ok() {
+                            let val = val.unwrap();
+                            if val.is_some() {
+                                Some(Ok(val.unwrap()))
+                            } else {
+                                None
+                            }
+                        } else {
+                            Some(Err(val.err().unwrap()))
+                        }
+                    })
+                    .collect::<IndexResult<Vec<T>>>()?;
+                out.append(&mut indexes);
+            }
+            out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
+            out.reverse();
+
+            out
+        }
+        SearchStrategy::Dfs => {
+            let mut results = make_dfs_search(index, &from, &until, &order, limit, link_tag)?
+                .into_iter()
+                .map(|link| match get(link.target, GetOptions::latest())? {
+                    Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
+                        IndexError::InternalError("Expected element to contain app entry data"),
+                    )?)),
                     None => Ok(None),
-                }
-            })
-            .filter_map(|val| {
-                if val.is_ok() {
-                    let val = val.unwrap();
-                    if val.is_some() {
-                        Some(Ok(val.unwrap()))
+                })
+                .filter_map(|val| {
+                    if val.is_ok() {
+                        let val = val.unwrap();
+                        if val.is_some() {
+                            Some(Ok(val.unwrap()))
+                        } else {
+                            None
+                        }
                     } else {
-                        None
+                        Some(Err(val.err().unwrap()))
                     }
-                } else {
-                    Some(Err(val.err().unwrap()))
-                }
-            })
-            .collect::<IndexResult<Vec<T>>>()?;
-        out.append(&mut indexes);
-    }
-    out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
-    out.reverse();
+                })
+                .collect::<IndexResult<Vec<T>>>()?;
 
-    Ok(out)
+            results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
+            results.reverse();
+
+            results
+        }
+    })
 }
 
 /// Takes a timestamp and creates an index path

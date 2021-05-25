@@ -3,7 +3,7 @@ use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::entries::{Index, IndexIndex, IndexType, TimeIndex};
 use crate::errors::{IndexError, IndexResult};
-use crate::{MAX_CHUNK_INTERVAL, TIME_INDEX_DEPTH};
+use crate::{INDEX_DEPTH, MAX_CHUNK_INTERVAL};
 
 /// Get children on a given path and use link tag to create full path structure
 pub(crate) fn get_path_links_on_path(path: &Path) -> IndexResult<Vec<Path>> {
@@ -18,8 +18,8 @@ pub(crate) fn get_path_links_on_path(path: &Path) -> IndexResult<Vec<Path>> {
 
 /// Find the overlapping path between two times and return vec of queries at given IndexTypes which still need to be performed
 pub(crate) fn find_divergent_time(
-    from: DateTime<Utc>,
-    until: DateTime<Utc>,
+    from: &DateTime<Utc>,
+    until: &DateTime<Utc>,
 ) -> IndexResult<(Vec<Component>, Vec<IndexType>)> {
     //Make year comparison
     let mut path = if from.year() == until.year() {
@@ -73,7 +73,7 @@ pub(crate) fn find_divergent_time(
         ));
     };
     //Check if index depth is allowed and make hour comparison
-    if TIME_INDEX_DEPTH.contains(&IndexType::Hour) {
+    if INDEX_DEPTH.contains(&IndexType::Hour) {
         if from.hour() == until.hour() {
             path.push(Component::from(
                 TimeIndex(from.hour() as u32).get_sb()?.bytes().to_owned(),
@@ -91,7 +91,7 @@ pub(crate) fn find_divergent_time(
         ));
     };
     //Check if index depth is allowed and make minute comparison
-    if TIME_INDEX_DEPTH.contains(&IndexType::Minute) {
+    if INDEX_DEPTH.contains(&IndexType::Minute) {
         if from.minute() == until.minute() {
             path.push(Component::from(
                 TimeIndex(from.minute() as u32).get_sb()?.bytes().to_owned(),
@@ -103,7 +103,7 @@ pub(crate) fn find_divergent_time(
         return Ok((path, vec![IndexType::Minute, IndexType::Second]));
     };
     //Check if index depth is allowed and make second comparison
-    if TIME_INDEX_DEPTH.contains(&IndexType::Second) {
+    if INDEX_DEPTH.contains(&IndexType::Second) {
         if from.second() == until.second() {
             path.push(Component::from(
                 TimeIndex(from.second() as u32).get_sb()?.bytes().to_owned(),
@@ -154,21 +154,21 @@ pub(crate) fn add_time_index_to_path<
         IndexType::Month => from_timestamp.month(),
         IndexType::Day => from_timestamp.day(),
         IndexType::Hour => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            if INDEX_DEPTH.contains(&time_index) {
                 from_timestamp.hour()
             } else {
                 return Ok(());
             }
         }
         IndexType::Minute => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            if INDEX_DEPTH.contains(&time_index) {
                 from_timestamp.minute()
             } else {
                 return Ok(());
             }
         }
         IndexType::Second => {
-            if TIME_INDEX_DEPTH.contains(&time_index) {
+            if INDEX_DEPTH.contains(&time_index) {
                 from_timestamp.second()
             } else {
                 return Ok(());

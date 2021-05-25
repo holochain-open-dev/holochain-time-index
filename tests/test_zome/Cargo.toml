@@ -17,10 +17,10 @@ opt-level = "z"
 opt-level = "z"
 
 [dependencies]
-hdk3 = { git = "https://github.com/holochain/holochain.git", rev = "fd8049a" }
+hdk = { git = "https://github.com/holochain/holochain", rev = "a6ac04396" }
 
 #derive_more = "0"
-serde = "1"
+serde = "*"
 lazy_static = "*"
 chrono = { version = "0.4", features = ["serde"] }
 mut_static = "*"

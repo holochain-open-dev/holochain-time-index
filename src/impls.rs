@@ -53,6 +53,60 @@ impl TryFrom<Component> for TimeIndex {
     }
 }
 
+impl TryFrom<Component> for IndexIndex {
+    type Error = IndexError;
+
+    fn try_from(data: Component) -> Result<Self, Self::Error> {
+        let time_index: Vec<u8> = data.into();
+        Ok(IndexIndex::try_from(SerializedBytes::from(
+            UnsafeBytes::from(time_index),
+        ))?)
+    }
+}
+
+impl TryFrom<Component> for Index {
+    type Error = IndexError;
+
+    fn try_from(data: Component) -> Result<Self, Self::Error> {
+        let time_index: Vec<u8> = data.into();
+        Ok(Index::try_from(SerializedBytes::from(UnsafeBytes::from(
+            time_index,
+        )))?)
+    }
+}
+
+impl std::fmt::Debug for WrappedPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut components: Vec<Component> = self.0.clone().into();
+        let mut debug_struct = f.debug_struct("Path");
+        if components.len() > 0 {
+            debug_struct.field(
+                "index",
+                &IndexIndex::try_from(components[0].clone()).unwrap().0,
+            );
+            components.remove(0);
+        };
+        for component in components {
+            let time_index = TimeIndex::try_from(component.clone());
+            if time_index.is_err() {
+                debug_struct.field(
+                    "index",
+                    &Index::try_from(component)
+                        .expect("Could not convert component into TimeIndex or IndexIndex"),
+                )
+            } else {
+                debug_struct.field(
+                    "time_index",
+                    &time_index
+                        .expect("Could not convert component into TimeIndex or IndexIndex")
+                        .0,
+                )
+            };
+        }
+        debug_struct.finish()
+    }
+}
+
 /// Convert a path into a NaiveDateTime; will fill datetime from path elements and will default to value 1 if no path component
 /// is found for a given datetime element
 impl TryInto<NaiveDateTime> for WrappedPath {

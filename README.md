@@ -61,7 +61,8 @@ Using the above methods its possible to build an application which places an emp
 - [x] Lib's variables derived from host DNA properties (blocked until HDK support)
 - [ ] Validation functions for links made at indexes
 - [ ] Validation functions for time b-tree shape & structure
-- [ ] Limit of returned links in public functions
+- [x] Limit of returned links in public functions
+- [x] DFS querying for links & entries on index
 
 ### Limitations
 

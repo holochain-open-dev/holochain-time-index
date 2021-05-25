@@ -96,7 +96,7 @@ pub use traits::IndexableEntry;
 use entries::{Index, IndexType};
 use errors::{IndexError, IndexResult};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EntryChunkIndex {
     pub index: Index,
     pub links: Links,

@@ -114,6 +114,7 @@ pub enum SearchStrategy {
     Bfs,
 }
 
+#[derive(Debug)]
 pub(crate) enum Order {
     Desc,
     Asc,
@@ -150,12 +151,12 @@ pub fn get_links_for_time_span(
     strategy: SearchStrategy,
     limit: Option<usize>,
 ) -> IndexResult<Vec<Link>> {
-    //Check that timeframe specified is greater than the INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
-        return Err(IndexError::RequestError(
-            "Time frame is smaller than index interval",
-        ));
-    };
+    // //Check that timeframe specified is greater than the INDEX_DEPTH.
+    // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
+    //     return Err(IndexError::RequestError(
+    //         "Time frame is smaller than index interval",
+    //     ));
+    // };
 
     Ok(methods::get_links_for_time_span(
         index, from, until, link_tag, strategy, limit,
@@ -173,12 +174,12 @@ pub fn get_links_and_load_for_time_span<
     strategy: SearchStrategy,
     limit: Option<usize>,
 ) -> IndexResult<Vec<T>> {
-    //Check that timeframe specified is greater than the INDEX_DEPTH.
-    if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
-        return Err(IndexError::RequestError(
-            "Time frame is smaller than index interval",
-        ));
-    };
+    // //Check that timeframe specified is greater than the INDEX_DEPTH.
+    // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
+    //     return Err(IndexError::RequestError(
+    //         "Time frame is smaller than index interval",
+    //     ));
+    // };
 
     Ok(methods::get_links_and_load_for_time_span::<T>(
         from, until, index, link_tag, strategy, limit,

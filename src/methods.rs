@@ -100,6 +100,7 @@ pub fn get_latest_index(index: String) -> IndexResult<Option<Path>> {
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Day)?;
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Hour)?;
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Minute)?;
+    let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Second)?;
 
     let indexes = time_path.children()?.into_inner();
     let ser_path = indexes

@@ -54,7 +54,6 @@ pub fn get_indexes_for_time_span(
         input.index,
         input.from,
         input.until,
-        input.limit,
         input.link_tag,
     )
     .map_err(|err| WasmError::Host(String::from(err)))?)
@@ -85,7 +84,7 @@ pub fn get_current_addresses(
     input: GetCurrentAddressesInput,
 ) -> ExternResult<Option<EntryChunkIndex>> {
     Ok(
-        hc_time_index::get_current_index(input.index, input.link_tag, input.limit)
+        hc_time_index::get_current_index(input.index, input.link_tag)
             .map_err(|err| WasmError::Host(String::from(err)))?,
     )
 }
@@ -95,7 +94,7 @@ pub fn get_most_recent_indexes(
     input: GetCurrentAddressesInput,
 ) -> ExternResult<Option<EntryChunkIndex>> {
     Ok(
-        hc_time_index::get_most_recent_indexes(input.index, input.link_tag, input.limit)
+        hc_time_index::get_most_recent_indexes(input.index, input.link_tag)
             .map_err(|err| WasmError::Host(String::from(err)))?,
     )
 }

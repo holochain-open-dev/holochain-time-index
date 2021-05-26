@@ -1,6 +1,5 @@
 use hdk::hash_path::path::{Component, Path};
-use hdk::prelude::*;
-use petgraph::{dot::Dot, graph::NodeIndex, stable_graph::StableDiGraph};
+use petgraph::{graph::NodeIndex, stable_graph::StableDiGraph};
 use std::convert::TryFrom;
 
 use crate::entries::{Index, IndexIndex, TimeIndex};
@@ -122,8 +121,8 @@ impl SearchState {
         Ok(added_indexes)
     }
 
-    /// Holochain debug dot representation of graph state
-    pub(crate) fn display_dot_repr(&self) {
-        debug!("{:#?}", Dot::new(&self.0));
-    }
+    // /// Holochain debug dot representation of graph state
+    // pub(crate) fn display_dot_repr(&self) {
+    //     debug!("{:#?}", Dot::new(&self.0));
+    // }
 }

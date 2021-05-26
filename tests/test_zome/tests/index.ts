@@ -76,6 +76,63 @@ orchestrator.registerScenario("test get index dfs", async (s, t) => {
   t.equal(asc_results.length, 5)
 })
 
+orchestrator.registerScenario("test get links and load dfs", async (s, t) => {
+  const [alice] = await s.players([conductorConfig])
+  console.log("Init alice happ");
+  const [[alice_happ]] = await alice.installAgentsHapps(installation)
+
+  var dateOffset = (24*60*60*1000); //1 day ago
+  var yesterday = new Date();
+  yesterday.setTime(yesterday.getTime() - dateOffset);
+
+  var dateOffset = (24*60*60*1000) * 2; //1 day ago
+  var twoDaysAgo = new Date();
+  twoDaysAgo.setTime(twoDaysAgo.getTime() - dateOffset);
+
+  var dateOffset = (24*60*60*1000) * 3; //1 day ago
+  var threeDaysAgo = new Date();
+  threeDaysAgo.setTime(threeDaysAgo.getTime() - dateOffset);
+
+  var dateOffset = (24*60*60*1000) * 4; //1 day ago
+  var fourDaysAgo = new Date();
+  fourDaysAgo.setTime(fourDaysAgo.getTime() - dateOffset);
+
+  var dateOffset = (24*60*60*1000) * 60; //1 day ago
+  var twoMonthsAgo = new Date();
+  twoMonthsAgo.setTime(twoMonthsAgo.getTime() - dateOffset);
+
+  //Index entry
+  await alice_happ.cells[0].call("testing_zome", "index_entry", {title: "A test index", created: new Date().toISOString()})
+  await alice_happ.cells[0].call("testing_zome", "index_entry", {title: "A test index2", created: yesterday.toISOString()})
+  await alice_happ.cells[0].call("testing_zome", "index_entry", {title: "A test index3", created: twoDaysAgo.toISOString()})
+  await alice_happ.cells[0].call("testing_zome", "index_entry", {title: "A test index4", created: threeDaysAgo.toISOString()})
+  await alice_happ.cells[0].call("testing_zome", "index_entry", {title: "A test index5", created: twoMonthsAgo.toISOString()})
+
+  var dateOffset = (24*60*60*1000); //1 day ago
+  var date = new Date();
+  date.setTime(date.getTime() - dateOffset);
+
+  //Get results in descending order
+  let results_between = await alice_happ.cells[0].call("testing_zome", "get_links_and_load_for_time_span", {index: "test_index", from: new Date().toISOString(), until: twoMonthsAgo.toISOString(), limit: 10})
+  console.log("Got results", results_between);
+  t.equal(results_between.length, 5)
+  t.equal(results_between[0].title, "A test index")
+  t.equal(results_between[1].title, "A test index2")
+  t.equal(results_between[2].title, "A test index3")
+  t.equal(results_between[3].title, "A test index4")
+  t.equal(results_between[4].title, "A test index5")
+
+  //Get results in ascending order
+  let asc_results = await alice_happ.cells[0].call("testing_zome", "get_links_and_load_for_time_span", {index: "test_index", from: twoMonthsAgo.toISOString(), until: new Date().toISOString(), limit: 10})
+  console.log("Got results", asc_results);
+  t.equal(asc_results.length, 5)
+  t.equal(asc_results[0].title, "A test index5")
+  t.equal(asc_results[1].title, "A test index4")
+  t.equal(asc_results[2].title, "A test index3")
+  t.equal(asc_results[3].title, "A test index2")
+  t.equal(asc_results[4].title, "A test index")
+})
+
 orchestrator.registerScenario("test simple index", async (s, t) => {
   const [alice] = await s.players([conductorConfig])
   console.log("Init alice happ");

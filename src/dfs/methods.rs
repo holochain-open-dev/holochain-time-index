@@ -85,17 +85,17 @@ pub(crate) fn make_dfs_search(
 
     loop {
         let next_node = dfs.next(&search_state.0);
-        debug!(
-            "Got next node: {:#?}",
-            next_node.map(|node| search_state.0.node_weight(node).unwrap())
-        );
+        // debug!(
+        //     "Got next node: {:#?}",
+        //     next_node.map(|node| search_state.0.node_weight(node).unwrap())
+        // );
         if next_node.is_none() {
             break;
         };
         let node = search_state.0.node_weight(next_node.unwrap()).unwrap();
         //Check if at bottom of index graph, if so then get links/entries
         if node.0.len() == max_depth_size {
-            debug!("Found node with correct depth, getting links");
+            //debug!("Found node with correct depth, getting links");
             end_node = next_node;
             let indexes = Path::from(
                 search_state
@@ -144,7 +144,7 @@ pub(crate) fn make_dfs_search(
                 6 => IndexType::Second,
                 _ => return Err(IndexError::InternalError("Expected path to be length 2-7")),
             };
-            debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
+            //debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
             paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order)?;
             // debug!(
             //     "Got next paths: {:#?}",
@@ -166,7 +166,7 @@ pub(crate) fn make_dfs_search(
         }
     }
 
-    search_state.display_dot_repr();
+    //search_state.display_dot_repr();
 
     Ok(if break_at_limit {
         if out.len() > limit.unwrap() {

@@ -231,7 +231,7 @@ pub(crate) fn get_links_and_load_for_time_span<
     Ok(match strategy {
         SearchStrategy::Bfs => {
             let paths = find_paths_for_time_span(from, until, index)?;
-            let mut out: Vec<T> = vec![];
+            let mut results: Vec<T> = vec![];
 
             for path in paths {
                 let paths = path.children()?.into_inner();
@@ -265,12 +265,18 @@ pub(crate) fn get_links_and_load_for_time_span<
                         }
                     })
                     .collect::<IndexResult<Vec<T>>>()?;
-                out.append(&mut indexes);
+                results.append(&mut indexes);
             }
-            out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
-            out.reverse();
+            match order {
+                Order::Desc => {
+                    results.sort_by(|a, b| b.entry_time().partial_cmp(&a.entry_time()).unwrap());
+                },
+                Order::Asc => {
+                    results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
+                }
+            }
 
-            out
+            results
         }
         SearchStrategy::Dfs => {
             let mut results = make_dfs_search(index, &from, &until, &order, limit, link_tag)?
@@ -295,8 +301,14 @@ pub(crate) fn get_links_and_load_for_time_span<
                 })
                 .collect::<IndexResult<Vec<T>>>()?;
 
-            results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
-            results.reverse();
+            match order {
+                Order::Desc => {
+                    results.sort_by(|a, b| b.entry_time().partial_cmp(&a.entry_time()).unwrap());
+                },
+                Order::Asc => {
+                    results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
+                }
+            }
 
             results
         }

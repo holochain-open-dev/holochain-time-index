@@ -4,3 +4,4 @@ Cargo.lock
 /tests/test_zome/target
 /tests/test_zome/tests/out.log
 *.dna
+.cargo

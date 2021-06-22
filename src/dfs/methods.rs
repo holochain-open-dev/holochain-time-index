@@ -210,7 +210,7 @@ pub(crate) fn get_next_level_path_dfs(
     });
 
     let chosen_path = paths.pop().unwrap();
-    debug!("Got chosen path: {:#?}", chosen_path);
+    // debug!("Got chosen path: {:#?}", chosen_path);
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
     let mut lower_paths: Vec<Path> = chosen_path
@@ -219,12 +219,12 @@ pub(crate) fn get_next_level_path_dfs(
         .into_iter()
         .map(|link| Ok(Path::try_from(&link.tag)?))
         .filter_map(|path| {
-            debug!("Got path in map {:#?}", path);
+            // debug!("Got path in map {:#?}", path);
             if path.is_ok() {
                 let path = path.unwrap();
                 let path_wrapped = WrappedPath(path.clone());
                 let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.clone().try_into();
-                debug!("Got path in lowerpaths fn: {:#?}. {:#?}. {:#?}/{:#?}. {:#?}", path_wrapped, chrono_path, from_time, until_time, index_type);
+                // debug!("Got path in lowerpaths fn: {:#?}. {:#?}. {:#?}/{:#?}. {:#?}", path_wrapped, chrono_path, from_time, until_time, index_type);
                 if chrono_path.is_err() {
                     return Some(Err(chrono_path.err().unwrap()));
                 };

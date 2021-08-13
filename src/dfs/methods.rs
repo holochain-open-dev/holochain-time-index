@@ -62,15 +62,15 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
         if paths.len() == 0 {
             return Ok(vec![])
         }
-        debug!(
-            "Now have paths: {:#?} at level: {:#?}",
-            paths
-                .clone()
-                .into_iter()
-                .map(|path| WrappedPath(path))
-                .collect::<Vec<WrappedPath>>(),
-            level
-        );
+        // debug!(
+        //     "Now have paths: {:#?} at level: {:#?}",
+        //     paths
+        //         .clone()
+        //         .into_iter()
+        //         .map(|path| WrappedPath(path))
+        //         .collect::<Vec<WrappedPath>>(),
+        //     level
+        // );
         //search_state.display_dot_repr();
 
         //Save the retreived paths to the Graph for later use
@@ -126,10 +126,10 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
                     }
                 });
             for index in indexes {
-                debug!(
-                    "Getting links for path: {:#?}",
-                    WrappedPath(index.clone())
-                );
+                // debug!(
+                //     "Getting links for path: {:#?}",
+                //     WrappedPath(index.clone())
+                // );
                 let mut links = get_links(index.hash()?, link_tag.clone())?.into_inner().into_iter()
                 .map(|link| match get(link.target, GetOptions::latest())? {
                     Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
@@ -219,12 +219,13 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
                 dfs.stack.append(&mut visited_stack);
                 dfs.stack.dedup();
 
+                //Keep array of all end nodes which were visited but required further DHT calls as to avoid infinite recursion when accessing this node again on next loop iteration
                 has_searched.push(next_node.unwrap());
             }
         }
     }
 
-    search_state.display_dot_repr();
+    // search_state.display_dot_repr();
 
     Ok(if break_at_limit {
         if out.len() > limit.unwrap() {
@@ -265,7 +266,7 @@ pub(crate) fn get_next_level_path_dfs(
     });
 
     let chosen_path = paths.pop().unwrap();
-    debug!("Got chosen path: {:#?}", WrappedPath(chosen_path.clone()));
+    // debug!("Got chosen path: {:#?}", WrappedPath(chosen_path.clone()));
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
     let mut lower_paths: Vec<Path> = chosen_path

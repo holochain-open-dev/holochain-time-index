@@ -247,10 +247,10 @@ pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
             .filter(|link| link.target == indexed_entry)
             .collect();
         for path_link in path_links {
-            debug!(
-                "Deleting link: {:#?}",
-                path_link.create_link_hash.to_owned()
-            );
+            // debug!(
+            //     "Deleting link: {:#?}",
+            //     path_link.create_link_hash.to_owned()
+            // );
             delete_link(path_link.create_link_hash.to_owned())?;
         }
     }
@@ -279,7 +279,7 @@ pub fn get_paths_for_path(path: Path, link_tag: Option<LinkTag>) -> IndexResult<
 lazy_static! {
     //Point at which links are considered spam and linked expressions are not allowed
     pub static ref ENFORCE_SPAM_LIMIT: usize = {
-        debug!("Attempting to set spam limit from: {:#?}", zome_info());
+        // debug!("Attempting to set spam limit from: {:#?}", zome_info());
         let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
         let properties = IndexConfiguration::try_from(host_dna_config)
             .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");

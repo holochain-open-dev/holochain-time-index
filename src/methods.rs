@@ -200,8 +200,14 @@ pub(crate) fn get_links_for_time_span(
         out.append(&mut indexes);
     }
     //TODO: do sort based on path value
-    out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
-    out.reverse();
+    match order {
+        Order::Desc => {
+            out.sort_by(|a, b| b.timestamp.partial_cmp(&a.timestamp).unwrap());
+        },
+        Order::Asc => {
+            out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+        }
+    }
     Ok(out)
 }
 

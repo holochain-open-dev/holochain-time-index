@@ -141,30 +141,30 @@ pub fn get_indexes_for_time_span(
     )?)
 }
 
-/// Get links for index that exist between two timestamps
-pub fn get_links_for_time_span(
-    index: String,
-    from: DateTime<Utc>,
-    until: DateTime<Utc>,
-    link_tag: Option<LinkTag>,
-    strategy: SearchStrategy,
-    limit: Option<usize>,
-) -> IndexResult<Vec<Link>> {
-    // //Check that timeframe specified is greater than the INDEX_DEPTH.
-    // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
-    //     return Err(IndexError::RequestError(
-    //         "Time frame is smaller than index interval",
-    //     ));
-    // };
+// /// Get links for index that exist between two timestamps
+// pub fn get_links_for_time_span(
+//     index: String,
+//     from: DateTime<Utc>,
+//     until: DateTime<Utc>,
+//     link_tag: Option<LinkTag>,
+//     strategy: SearchStrategy,
+//     limit: Option<usize>,
+// ) -> IndexResult<Vec<Link>> {
+//     // //Check that timeframe specified is greater than the INDEX_DEPTH.
+//     // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
+//     //     return Err(IndexError::RequestError(
+//     //         "Time frame is smaller than index interval",
+//     //     ));
+//     // };
 
-    Ok(methods::get_links_for_time_span(
-        index, from, until, link_tag, strategy, limit,
-    )?)
-}
+//     Ok(methods::get_links_for_time_span(
+//         index, from, until, link_tag, strategy, limit,
+//     )?)
+// }
 
 /// Get links for index that exist between two timestamps and attempt to serialize link targets to T
 pub fn get_links_and_load_for_time_span<
-    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry,
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug,
 >(
     index: String,
     from: DateTime<Utc>,

@@ -137,6 +137,7 @@ pub(crate) fn get_time_path(
     add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Hour)?;
     add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Minute)?;
     add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Second)?;
+    // debug!("Indexing with path lenght: {:#?}", time_path.len());
 
     Ok(time_path)
 }

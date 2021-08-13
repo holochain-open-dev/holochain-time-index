@@ -1,25 +1,26 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk::hash_path::path::Component;
 use hdk::prelude::*;
-use petgraph::graph::NodeIndex;
+use petgraph::{graph::NodeIndex};
 use petgraph::visit::Dfs;
+use std::fmt::Debug;
 
 use crate::dfs::SearchState;
-use crate::entries::{IndexIndex, IndexType, WrappedPath};
+use crate::entries::{IndexIndex, IndexType, WrappedPath, Index};
 use crate::errors::{IndexError, IndexResult};
 use crate::search::get_naivedatetime;
 use crate::utils::find_divergent_time;
-use crate::{Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH};
+use crate::{Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH, IndexableEntry};
 
-pub(crate) fn make_dfs_search(
+pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + Debug>(
     index: String,
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,
     order: &Order,
     limit: Option<usize>,
     link_tag: Option<LinkTag>,
-) -> IndexResult<Vec<Link>> {
-    let mut out: Vec<Link> = vec![];
+) -> IndexResult<Vec<T>> {
+    let mut out: Vec<T> = vec![];
     let mut search_state = SearchState::new();
     //Start path with index
     let mut paths = vec![Component::from(
@@ -61,15 +62,15 @@ pub(crate) fn make_dfs_search(
         if paths.len() == 0 {
             return Ok(vec![])
         }
-        // debug!(
-        //     "Now have paths: {:#?} at level: {:#?}",
-        //     paths
-        //         .clone()
-        //         .into_iter()
-        //         .map(|path| WrappedPath(path))
-        //         .collect::<Vec<WrappedPath>>(),
-        //     level
-        // );
+        debug!(
+            "Now have paths: {:#?} at level: {:#?}",
+            paths
+                .clone()
+                .into_iter()
+                .map(|path| WrappedPath(path))
+                .collect::<Vec<WrappedPath>>(),
+            level
+        );
         //search_state.display_dot_repr();
 
         //Save the retreived paths to the Graph for later use
@@ -89,33 +90,80 @@ pub(crate) fn make_dfs_search(
 
     loop {
         let next_node = dfs.next(&search_state.0);
-        // debug!(
-        //     "Got next node: {:#?}",
-        //     next_node.map(|node| search_state.0.node_weight(node).unwrap())
-        // );
+        debug!(
+            "Got next node: {:#?}",
+            next_node.map(|node| search_state.0.node_weight(node).unwrap())
+        );
+        //debug!("START STACK IS{:#?}", dfs.stack.clone().into_iter().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
+        //debug!("DISCOVERED STACK IS{:#?}", dfs.discovered.clone().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
         if next_node.is_none() {
             break;
         };
         let node = search_state.0.node_weight(next_node.unwrap()).unwrap();
         //Check if at bottom of index graph, if so then get links/entries
         if node.0.len() == max_depth_size {
-            //debug!("Found node with correct depth, getting links");
+            debug!("Found node with correct depth, getting index links");
             end_node = next_node;
-            let indexes = Path::from(
+            let mut indexes = Path::from(
                 search_state
                     .0
                     .node_weight(end_node.unwrap())
                     .unwrap()
                     .0
                     .clone(),
-            )
-            .children()?
-            .into_inner()
-            .into_iter()
-            .map(|link| Ok(Path::try_from(&link.tag)?))
-            .collect::<IndexResult<Vec<Path>>>()?;
+                )
+                .children()?
+                .into_inner()
+                .into_iter()
+                .map(|link| Ok(Path::try_from(&link.tag)?))
+                .collect::<IndexResult<Vec<Path>>>()?;
+            indexes
+                .sort_by(|a, b| {
+                    let index_chunk = Index::try_from(a.clone()).unwrap();
+                    let index_chunk_b = Index::try_from(b.clone()).unwrap();
+                    match order {
+                        Order::Desc => index_chunk_b.from.partial_cmp(&index_chunk.from).unwrap(),
+                        Order::Asc => index_chunk.from.partial_cmp(&index_chunk_b.from).unwrap(),
+                    }
+                });
             for index in indexes {
-                let mut links = get_links(index.hash()?, link_tag.clone())?.into_inner();
+                debug!(
+                    "Getting links for path: {:#?}",
+                    WrappedPath(index.clone())
+                );
+                let mut links = get_links(index.hash()?, link_tag.clone())?.into_inner().into_iter()
+                .map(|link| match get(link.target, GetOptions::latest())? {
+                    Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
+                        IndexError::InternalError("Expected element to contain app entry data"),
+                    )?)),
+                    None => Ok(None),
+                })
+                .filter_map(|val| {
+                    if val.is_ok() {
+                        let val = val.unwrap();
+                        if val.is_some() {
+                            let val = val.unwrap();
+                            match order {
+                                Order::Desc => if val.entry_time() <= *from && val.entry_time() >= *until {
+                                    Some(Ok(val))
+                                } else {
+                                    None
+                                }
+                                Order::Asc => if val.entry_time() >= *from && val.entry_time() <= *until {
+                                    Some(Ok(val))
+                                } else {
+                                    None
+                                }
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some(Err(val.err().unwrap()))
+                    }
+                })
+                .collect::<IndexResult<Vec<T>>>()?;
+                debug!("Found values: {:#?}", links);
                 out.append(&mut links);
                 if break_at_limit {
                     if out.len() > limit.unwrap() {
@@ -148,33 +196,45 @@ pub(crate) fn make_dfs_search(
                 6 => IndexType::Second,
                 _ => return Err(IndexError::InternalError("Expected path to be length 2-7")),
             };
-            //debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
+            debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
             paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order)?;
-            // debug!(
-            //     "Got next paths: {:#?}",
-            //     paths
-            //         .clone()
-            //         .into_iter()
-            //         .map(|path| WrappedPath(path.clone()))
-            //         .collect::<Vec<WrappedPath>>()
-            // );
+            debug!(
+                "Got next paths in dfs search tree: {:#?}",
+                paths
+                    .clone()
+                    .into_iter()
+                    .map(|path| WrappedPath(path.clone()))
+                    .collect::<Vec<WrappedPath>>()
+            );
             //Add the founds paths as indexes on the current node item
-            let mut added_indexes = search_state
-                .populate_next_nodes_from_position(paths.clone(), next_node.unwrap())?;
+            
+            
+            let added_indexes = search_state
+               .populate_next_nodes_from_position(paths.clone(), next_node.unwrap())?;
+            debug!("have added indexes: {:#?}", added_indexes.clone().into_iter().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
             //Clone the current stack to keep a list of already visited nodes
-            let mut stack = dfs.stack.clone();
+            let mut visited_stack = dfs.stack.clone();
+            let _discovered = dfs.discovered.clone();
+
             //Start a new search with new graph & old state
-            dfs = Dfs::new(&search_state.0, NodeIndex::new(next_node.unwrap().index()));
-            stack.append(&mut added_indexes);
-            dfs.stack = stack;
+            dfs = Dfs::new(&search_state.0, added_indexes[0]);
+            //visited_stack.append(&mut added_indexes);
+            dfs.stack.append(&mut visited_stack);
+            //dfs.discovered = discovered;
+            //dfs.stack.retain(|sv| !visited_stack.contains(sv));
+            //dfs.move_to(NodeIndex::new(next_node.unwrap().index()));
+            
+            
+            //debug!("STACK IS{:#?}", dfs.stack.clone().into_iter().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
         }
     }
 
-    //search_state.display_dot_repr();
+    search_state.display_dot_repr();
 
     Ok(if break_at_limit {
         if out.len() > limit.unwrap() {
-            out[0..limit.unwrap()].to_owned()
+            let _vec2 = out.split_off(limit.unwrap());
+            out
         } else {
             out
         }
@@ -210,7 +270,7 @@ pub(crate) fn get_next_level_path_dfs(
     });
 
     let chosen_path = paths.pop().unwrap();
-    // debug!("Got chosen path: {:#?}", chosen_path);
+    debug!("Got chosen path: {:#?}", WrappedPath(chosen_path.clone()));
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
     let mut lower_paths: Vec<Path> = chosen_path

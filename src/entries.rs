@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use hdk::prelude::*;
 
-#[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Clone, SerializedBytes, Serialize, Deserialize, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Index {
     pub from: Duration,
     pub until: Duration,

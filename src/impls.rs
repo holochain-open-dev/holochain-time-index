@@ -1,6 +1,6 @@
 //use chrono::{Duration, DurationRound};
 
-use std::convert::{TryFrom, TryInto};
+use std::{convert::{TryFrom, TryInto}, ops::Sub};
 
 use chrono::{NaiveDate, NaiveDateTime};
 use hdk::{
@@ -103,6 +103,33 @@ impl std::fmt::Debug for WrappedPath {
                 )
             };
         }
+        debug_struct.finish()
+    }
+}
+
+impl std::fmt::Debug for Index {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("Index");
+        debug_struct.field(
+            "from",
+            &self.from.as_secs().to_string()
+        );
+        debug_struct.field(
+            "until",
+            &self.until.as_secs().to_string()
+        );
+        debug_struct.field(
+            "diff",
+            &self.until.sub(self.from)
+        );
+        debug_struct.field(
+            "timestamp",
+            &NaiveDateTime::from_timestamp(self.from.as_secs() as i64, self.from.subsec_nanos())
+        );
+        debug_struct.field(
+            "timestamp_until",
+            &NaiveDateTime::from_timestamp(self.until.as_secs() as i64, self.until.subsec_nanos())
+        );
         debug_struct.finish()
     }
 }

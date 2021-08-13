@@ -27,7 +27,7 @@ chrono = "0.4"
 mut_static = "*"
 permutation = "0.2.5"
 thiserror = "1.0.24"
-petgraph = "*"
+petgraph = "0.6"
 
 [patch.crates-io]
 hdk = { git = "https://github.com/holochain/holochain", rev="1ff2cc2935e6a2bfbb95aef5f2860eb09b467b49", package="hdk"}

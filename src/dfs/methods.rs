@@ -87,22 +87,21 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
     //Start dfs search
     let mut dfs = Dfs::new(&search_state.0, NodeIndex::from(0));
     let mut end_node = None;
+    let mut has_searched = vec![];
 
     loop {
         let next_node = dfs.next(&search_state.0);
-        debug!(
-            "Got next node: {:#?}",
-            next_node.map(|node| search_state.0.node_weight(node).unwrap())
-        );
-        //debug!("START STACK IS{:#?}", dfs.stack.clone().into_iter().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
-        //debug!("DISCOVERED STACK IS{:#?}", dfs.discovered.clone().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
+        // debug!(
+        //     "Got next node: {:#?}",
+        //     next_node.map(|node| search_state.0.node_weight(node).unwrap())
+        // );
         if next_node.is_none() {
             break;
         };
         let node = search_state.0.node_weight(next_node.unwrap()).unwrap();
         //Check if at bottom of index graph, if so then get links/entries
         if node.0.len() == max_depth_size {
-            debug!("Found node with correct depth, getting index links");
+            // debug!("Found node with correct depth, getting index links");
             end_node = next_node;
             let mut indexes = Path::from(
                 search_state
@@ -163,7 +162,6 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
                     }
                 })
                 .collect::<IndexResult<Vec<T>>>()?;
-                debug!("Found values: {:#?}", links);
                 out.append(&mut links);
                 if break_at_limit {
                     if out.len() > limit.unwrap() {
@@ -177,55 +175,52 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
                 }
             }
         } else if end_node.is_some() {
-            //Not at the bottom of the tree/graph but should be at the next lowest point of index, here we will grab then next set of indexes
-            let node = Path::from(
-                search_state
-                    .0
-                    .node_weight(next_node.unwrap())
-                    .unwrap()
-                    .0
-                    .clone(),
-            );
-            let node_components: Vec<Component> = node.clone().into();
-            let index_type = match node_components.len() {
-                1 => IndexType::Year,
-                2 => IndexType::Month,
-                3 => IndexType::Day,
-                4 => IndexType::Hour,
-                5 => IndexType::Minute,
-                6 => IndexType::Second,
-                _ => return Err(IndexError::InternalError("Expected path to be length 2-7")),
-            };
-            debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
-            paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order)?;
-            debug!(
-                "Got next paths in dfs search tree: {:#?}",
-                paths
-                    .clone()
-                    .into_iter()
-                    .map(|path| WrappedPath(path.clone()))
-                    .collect::<Vec<WrappedPath>>()
-            );
-            //Add the founds paths as indexes on the current node item
-            
-            
-            let added_indexes = search_state
-               .populate_next_nodes_from_position(paths.clone(), next_node.unwrap())?;
-            debug!("have added indexes: {:#?}", added_indexes.clone().into_iter().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
-            //Clone the current stack to keep a list of already visited nodes
-            let mut visited_stack = dfs.stack.clone();
-            let _discovered = dfs.discovered.clone();
+            if !has_searched.contains(&next_node.unwrap()) {
+                //Not at the bottom of the tree/graph but should be at the next lowest point of index, here we will grab then next set of indexes
+                let node = Path::from(
+                    search_state
+                        .0
+                        .node_weight(next_node.unwrap())
+                        .unwrap()
+                        .0
+                        .clone(),
+                );
+                let node_components: Vec<Component> = node.clone().into();
+                let index_type = match node_components.len() {
+                    1 => IndexType::Year,
+                    2 => IndexType::Month,
+                    3 => IndexType::Day,
+                    4 => IndexType::Hour,
+                    5 => IndexType::Minute,
+                    6 => IndexType::Second,
+                    _ => return Err(IndexError::InternalError("Expected path to be length 2-7")),
+                };
+                //debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
+                paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order)?;
+                // debug!(
+                //     "Got next paths in dfs search tree: {:#?}",
+                //     paths
+                //         .clone()
+                //         .into_iter()
+                //         .map(|path| WrappedPath(path.clone()))
+                //         .collect::<Vec<WrappedPath>>()
+                // );
 
-            //Start a new search with new graph & old state
-            dfs = Dfs::new(&search_state.0, added_indexes[0]);
-            //visited_stack.append(&mut added_indexes);
-            dfs.stack.append(&mut visited_stack);
-            //dfs.discovered = discovered;
-            //dfs.stack.retain(|sv| !visited_stack.contains(sv));
-            //dfs.move_to(NodeIndex::new(next_node.unwrap().index()));
-            
-            
-            //debug!("STACK IS{:#?}", dfs.stack.clone().into_iter().map(|gn| search_state.0.node_weight(gn).unwrap()).collect::<Vec<_>>());
+                //Add the founds paths as indexes on the current node item
+                search_state
+                    .populate_next_nodes_from_position(paths.clone(), next_node.unwrap())?;
+
+                //Clone the current stack to keep a list of already visited nodes
+                let mut visited_stack = dfs.stack.clone();
+
+                //Start a new search with new graph & old state
+                //Dfs::move_to(&mut dfs, next_node.unwrap());
+                dfs = Dfs::new(&search_state.0, next_node.unwrap());
+                dfs.stack.append(&mut visited_stack);
+                dfs.stack.dedup();
+
+                has_searched.push(next_node.unwrap());
+            }
         }
     }
 

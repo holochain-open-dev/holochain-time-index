@@ -163,53 +163,47 @@ pub(crate) fn get_indexes_for_time_span(
     Ok(ordered_indexes)
 }
 
-// /// Get all links that exist for some time period between from -> until
-// pub(crate) fn get_links_for_time_span(
-//     index: String,
-//     from: DateTime<Utc>,
-//     until: DateTime<Utc>,
-//     link_tag: Option<LinkTag>,
-//     strategy: SearchStrategy,
-//     limit: Option<usize>,
-// ) -> IndexResult<Vec<Link>> {
-//     let order = if from > until {
-//         Order::Desc
-//     } else {
-//         Order::Asc
-//     };
+/// Get all links that exist for some time period between from -> until
+pub(crate) fn get_links_for_time_span(
+    index: String,
+    from: DateTime<Utc>,
+    until: DateTime<Utc>,
+    link_tag: Option<LinkTag>,
+    limit: Option<usize>,
+) -> IndexResult<Vec<Link>> {
+    let order = if from > until {
+        Order::Desc
+    } else {
+        Order::Asc
+    };
 
-//     Ok(match strategy {
-//         SearchStrategy::Bfs => {
-//             if limit.is_some() {
-//                 debug!("hc_time_index::get_links_for_time_span: WARNING: Limit not supported on Bfs strategy. All links between bounds will be retrieved and returned");
-//             };
-//             let paths = find_paths_for_time_span(from, until, index)?;
-//             //debug!("Got paths after search: {:#?}", paths);
-//             let mut out: Vec<Link> = vec![];
-//             for path in paths {
-//                 let paths = path.children()?.into_inner();
-//                 let mut indexes = paths
-//                     .clone()
-//                     .into_iter()
-//                     .map(|link| {
-//                         let path = Path::try_from(&link.tag)?;
-//                         let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
-//                         Ok(links)
-//                     })
-//                     .collect::<IndexResult<Vec<Vec<Link>>>>()?
-//                     .into_iter()
-//                     .flatten()
-//                     .collect();
-//                 out.append(&mut indexes);
-//             }
-//             //TODO: do sort based on path value
-//             out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
-//             out.reverse();
-//             out
-//         }
-//         SearchStrategy::Dfs => make_dfs_search(index, &from, &until, &order, limit, link_tag)?,
-//     })
-// }
+    if limit.is_some() {
+        debug!("hc_time_index::get_links_for_time_span: WARNING: Limit not supported on Bfs strategy. All links between bounds will be retrieved and returned");
+    };
+    let paths = find_paths_for_time_span(from, until, index)?;
+    //debug!("Got paths after search: {:#?}", paths);
+    let mut out: Vec<Link> = vec![];
+    for path in paths {
+        let paths = path.children()?.into_inner();
+        let mut indexes = paths
+            .clone()
+            .into_iter()
+            .map(|link| {
+                let path = Path::try_from(&link.tag)?;
+                let links = get_links(path.hash()?, link_tag.clone())?.into_inner();
+                Ok(links)
+            })
+            .collect::<IndexResult<Vec<Vec<Link>>>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+        out.append(&mut indexes);
+    }
+    //TODO: do sort based on path value
+    out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+    out.reverse();
+    Ok(out)
+}
 
 /// Get all links that exist for some time period between from -> until
 pub(crate) fn get_links_and_load_for_time_span<

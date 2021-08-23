@@ -7,7 +7,12 @@ use crate::MAX_CHUNK_INTERVAL;
 impl Index {
     pub fn validate_chunk(&self) -> IndexResult<()> {
         //TODO: incorrect error type being used here
-        if self.from > sys_time()? {
+        let now_since_epoch = sys_time()?
+            .checked_difference_signed(&Timestamp(0, 0))
+            .ok_or(IndexError::InternalError("Should not overflow"))?
+            .to_std()
+            .map_err(|_err| IndexError::InternalError("Should not overflow"))?;
+        if self.from > now_since_epoch {
             return Err(IndexError::RequestError(
                 "Time chunk cannot start in the future",
             ));

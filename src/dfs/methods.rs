@@ -1,18 +1,20 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk::hash_path::path::Component;
 use hdk::prelude::*;
-use petgraph::{graph::NodeIndex};
+use petgraph::graph::NodeIndex;
 use petgraph::visit::Dfs;
 use std::fmt::Debug;
 
 use crate::dfs::SearchState;
-use crate::entries::{IndexIndex, IndexType, WrappedPath, Index};
+use crate::entries::{Index, IndexIndex, IndexType, WrappedPath};
 use crate::errors::{IndexError, IndexResult};
 use crate::search::get_naivedatetime;
 use crate::utils::find_divergent_time;
-use crate::{Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH, IndexableEntry};
+use crate::{IndexableEntry, Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH};
 
-pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + Debug>(
+pub(crate) fn make_dfs_search<
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + Debug,
+>(
     index: String,
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,
@@ -60,7 +62,7 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
         paths = get_next_level_path_dfs(paths, &from, &until, &level, &order)?;
         //If we dont get any paths at the next index level then we should return empty vec
         if paths.len() == 0 {
-            return Ok(vec![])
+            return Ok(vec![]);
         }
         // debug!(
         //     "Now have paths: {:#?} at level: {:#?}",
@@ -110,58 +112,63 @@ pub(crate) fn make_dfs_search<T: TryFrom<SerializedBytes, Error = SerializedByte
                     .unwrap()
                     .0
                     .clone(),
-                )
-                .children()?
-                .into_inner()
-                .into_iter()
-                .map(|link| Ok(Path::try_from(&link.tag)?))
-                .collect::<IndexResult<Vec<Path>>>()?;
-            indexes
-                .sort_by(|a, b| {
-                    let index_chunk = Index::try_from(a.clone()).unwrap();
-                    let index_chunk_b = Index::try_from(b.clone()).unwrap();
-                    match order {
-                        Order::Desc => index_chunk_b.from.partial_cmp(&index_chunk.from).unwrap(),
-                        Order::Asc => index_chunk.from.partial_cmp(&index_chunk_b.from).unwrap(),
-                    }
-                });
+            )
+            .children()?
+            .into_inner()
+            .into_iter()
+            .map(|link| Ok(Path::try_from(&link.tag)?))
+            .collect::<IndexResult<Vec<Path>>>()?;
+            indexes.sort_by(|a, b| {
+                let index_chunk = Index::try_from(a.clone()).unwrap();
+                let index_chunk_b = Index::try_from(b.clone()).unwrap();
+                match order {
+                    Order::Desc => index_chunk_b.from.partial_cmp(&index_chunk.from).unwrap(),
+                    Order::Asc => index_chunk.from.partial_cmp(&index_chunk_b.from).unwrap(),
+                }
+            });
             for index in indexes {
                 // debug!(
                 //     "Getting links for path: {:#?}",
                 //     WrappedPath(index.clone())
                 // );
-                let mut links = get_links(index.hash()?, link_tag.clone())?.into_inner().into_iter()
-                .map(|link| match get(link.target, GetOptions::latest())? {
-                    Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
-                        IndexError::InternalError("Expected element to contain app entry data"),
-                    )?)),
-                    None => Ok(None),
-                })
-                .filter_map(|val| {
-                    if val.is_ok() {
-                        let val = val.unwrap();
-                        if val.is_some() {
+                let mut links = get_links(index.hash()?, link_tag.clone())?
+                    .into_inner()
+                    .into_iter()
+                    .map(|link| match get(link.target, GetOptions::latest())? {
+                        Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
+                            IndexError::InternalError("Expected element to contain app entry data"),
+                        )?)),
+                        None => Ok(None),
+                    })
+                    .filter_map(|val| {
+                        if val.is_ok() {
                             let val = val.unwrap();
-                            match order {
-                                Order::Desc => if val.entry_time() <= *from && val.entry_time() >= *until {
-                                    Some(Ok(val))
-                                } else {
-                                    None
+                            if val.is_some() {
+                                let val = val.unwrap();
+                                match order {
+                                    Order::Desc => {
+                                        if val.entry_time() <= *from && val.entry_time() >= *until {
+                                            Some(Ok(val))
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    Order::Asc => {
+                                        if val.entry_time() >= *from && val.entry_time() <= *until {
+                                            Some(Ok(val))
+                                        } else {
+                                            None
+                                        }
+                                    }
                                 }
-                                Order::Asc => if val.entry_time() >= *from && val.entry_time() <= *until {
-                                    Some(Ok(val))
-                                } else {
-                                    None
-                                }
+                            } else {
+                                None
                             }
                         } else {
-                            None
+                            Some(Err(val.err().unwrap()))
                         }
-                    } else {
-                        Some(Err(val.err().unwrap()))
-                    }
-                })
-                .collect::<IndexResult<Vec<T>>>()?;
+                    })
+                    .collect::<IndexResult<Vec<T>>>()?;
                 out.append(&mut links);
                 if break_at_limit {
                     if out.len() > limit.unwrap() {

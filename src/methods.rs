@@ -20,7 +20,12 @@ impl Index {
     /// Create a new time index
     pub(crate) fn new(&self, index: String) -> IndexResult<Path> {
         //These validations are to help zome callers; but should also be present in validation rules
-        if self.from > sys_time()? {
+        let now_since_epoch = sys_time()?
+            .checked_difference_signed(&Timestamp(0, 0))
+            .ok_or(IndexError::InternalError("Should not overflow"))?
+            .to_std()
+            .map_err(|_err| IndexError::InternalError("Should not overflow"))?;
+        if self.from > now_since_epoch {
             return Err(IndexError::RequestError(
                 "Time index cannot start in the future",
             ));
@@ -50,10 +55,7 @@ impl Index {
 pub fn get_current_index(index: String) -> IndexResult<Option<Path>> {
     //Running with the asumption here that sys_time is always UTC
     let now = sys_time()?;
-    let now = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(now.as_secs_f64() as i64, now.subsec_nanos()),
-        Utc,
-    );
+    let now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now.0, now.1), Utc);
 
     //Create current time path
     let mut time_path = vec![Component::try_from(
@@ -155,7 +157,11 @@ pub(crate) fn get_indexes_for_time_span(
         out.append(&mut indexes);
     }
     //NOTE: untested logic
-    let timestamps = out.clone().into_iter().map(|val| val.index.from).collect::<Vec<Duration>>();
+    let timestamps = out
+        .clone()
+        .into_iter()
+        .map(|val| val.index.from)
+        .collect::<Vec<Duration>>();
     let permutation = permutation::sort_by(&timestamps[..], |a, b| a.partial_cmp(&b).unwrap());
     let mut ordered_indexes: Vec<EntryChunkIndex> = permutation.apply_slice(&out[..]);
     ordered_indexes.reverse();
@@ -203,7 +209,7 @@ pub(crate) fn get_links_for_time_span(
     match order {
         Order::Desc => {
             out.sort_by(|a, b| b.timestamp.partial_cmp(&a.timestamp).unwrap());
-        },
+        }
         Order::Asc => {
             out.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
         }
@@ -270,7 +276,7 @@ pub(crate) fn get_links_and_load_for_time_span<
             match order {
                 Order::Desc => {
                     results.sort_by(|a, b| b.entry_time().partial_cmp(&a.entry_time()).unwrap());
-                },
+                }
                 Order::Asc => {
                     results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
                 }
@@ -284,7 +290,7 @@ pub(crate) fn get_links_and_load_for_time_span<
             match order {
                 Order::Desc => {
                     results.sort_by(|a, b| b.entry_time().partial_cmp(&a.entry_time()).unwrap());
-                },
+                }
                 Order::Asc => {
                     results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
                 }

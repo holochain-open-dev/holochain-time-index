@@ -18,7 +18,7 @@ opt-level = "z"
 opt-level = "z"
 
 [dependencies]
-hdk = "0.0.101-alpha.0"
+hdk = "0.0.103"
 
 #derive_more = "0"
 serde = "1"
@@ -28,7 +28,3 @@ mut_static = "*"
 permutation = "0.2.5"
 thiserror = "1.0.24"
 petgraph = "0.6"
-
-[patch.crates-io]
-hdk = { git = "https://github.com/holochain/holochain", rev="1ff2cc2935e6a2bfbb95aef5f2860eb09b467b49", package="hdk"}
-holo_hash = { git = "https://github.com/holochain/holochain", rev="1ff2cc2935e6a2bfbb95aef5f2860eb09b467b49", package="holo_hash"}

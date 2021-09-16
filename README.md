@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This DHT aims to be one solution (of many) to the DHT hostpotting problem that can occur in holochain DHT's when many links are made from one entry.
+This DHT aims to be one solution (of many) to the DHT hotspotting problem that can occur in holochain DHT's when many links are made from one entry.
 This hotspotting occurs as the original author (and their surrounding hash neighbourhood?) of an entry is responsible for storing and resolving all links from the given authored entry. As a result if a given entry becomes very popular then it can be left up to one or a few nodes to handle all traffic flowing through this part of the DHT.
 
 ## Function
@@ -19,7 +19,7 @@ This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkT
 
 In the above example we are indexing 3 entries. It should be simple to follow the time tree and see how this tree can be used to locate an entry in time; but we have also introduced a new concept: TimeFrame. 
 TimeFrame is the last piece of the path where entries get linked. This allows for the specification of a time frame that is greater than one unit of the "parent" time. This is useful when you want to link at a fidelity that is not offered by the ordinary time data; i.e index links at every 30 second chunk vs every minute or link to every 10 minute chunk vs every hour.
-This time frame can be set by adding the `ENFORCE_SPAM_LIMIT` to host DNA's properties.
+This time frame can be set by adding the `MAX_CHUNK_INTERVAL` to host DNA's properties.
 
 Indexes into time tree occur based on the value received from `IndexableEntry::entry_time(&self)` trait function that should be derive on the entry type you wish to index. 
 
@@ -40,14 +40,14 @@ If you can guarantee that fragmentation of the DHT will not happen then its poss
 
 This DNA exposes a few helper functions to make integrating with this time series data easy. Functions are:
 
-`get_indexes_between()`: Gets links between two time periods
-`get_current_index()`: Gets links on current index period
-`get_most_recent_indexes()`: Gets the most recent links
-`index_entry()`: Indexes an entry into time tree
+- `get_indexes_between()`: Gets links between two time periods
+- `get_current_index()`: Gets links on current index period
+- `get_most_recent_indexes()`: Gets the most recent links
+- `index_entry()`: Indexes an entry into time tree
 
 ### hApp Usage
 
-Using the above methods its possible to build an application which places an emphasis on time ordered data (such as a group DM or news feed). Or you can use the time ordered nature of the data as a natural pagination for larger queries where you may wish to aggregate data over a given time period and then perform some further computations over it.
+Using the above methods, it's possible to build an application which places an emphasis on time ordered data (such as a group DM or news feed). Or you can use the time ordered nature of the data as a natural pagination for larger queries where you may wish to aggregate data over a given time period and then perform some further computations over it.
 
 
 ## Status/TODO

@@ -8,7 +8,7 @@ impl Index {
     pub fn validate_chunk(&self) -> IndexResult<()> {
         //TODO: incorrect error type being used here
         let now_since_epoch = sys_time()?
-            .checked_difference_signed(&Timestamp(0, 0))
+            .checked_difference_signed(&Timestamp::from_micros(0))
             .ok_or(IndexError::InternalError("Should not overflow"))?
             .to_std()
             .map_err(|_err| IndexError::InternalError("Should not overflow"))?;

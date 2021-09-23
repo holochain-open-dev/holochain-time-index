@@ -21,7 +21,7 @@ impl Index {
     pub(crate) fn new(&self, index: String) -> IndexResult<Path> {
         //These validations are to help zome callers; but should also be present in validation rules
         let now_since_epoch = sys_time()?
-            .checked_difference_signed(&Timestamp(0, 0))
+            .checked_difference_signed(&Timestamp::from_micros(0))
             .ok_or(IndexError::InternalError("Should not overflow"))?
             .to_std()
             .map_err(|_err| IndexError::InternalError("Should not overflow"))?;
@@ -54,7 +54,7 @@ impl Index {
 /// Get current index using sys_time as source for time
 pub fn get_current_index(index: String) -> IndexResult<Option<Path>> {
     //Running with the asumption here that sys_time is always UTC
-    let now = sys_time()?;
+    let now = sys_time()?.as_seconds_and_nanos();
     let now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now.0, now.1), Utc);
 
     //Create current time path

@@ -8,7 +8,7 @@ use crate::dfs::methods::make_dfs_search;
 use crate::search::find_newest_time_path;
 use crate::utils::{add_time_index_to_path, get_index_for_timestamp, get_time_path};
 use crate::{
-    entries::{Index, IndexIndex, IndexType, TimeIndex},
+    entries::{Index, IndexType, StringIndex, TimeIndex},
     EntryChunkIndex, IndexableEntry, SearchStrategy, MAX_CHUNK_INTERVAL,
 };
 use crate::{
@@ -59,7 +59,7 @@ pub fn get_current_index(index: String) -> IndexResult<Option<Path>> {
 
     //Create current time path
     let mut time_path = vec![Component::try_from(
-        IndexIndex(index).get_sb()?.bytes().to_owned(),
+        StringIndex(index).get_sb()?.bytes().to_owned(),
     )?];
     add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Year)?;
     add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Month)?;
@@ -95,7 +95,7 @@ pub fn get_latest_index(index: String) -> IndexResult<Option<Path>> {
     // This should also be smarter. We could at the least derive the index & current year and check that for paths before moving
     // to the previous year. This would help remove 2 get_link() calls from the DHT on source Index path & Index + Year path
     let time_path = Path::from(vec![Component::from(
-        IndexIndex(index).get_sb()?.bytes().to_owned(),
+        StringIndex(index).get_sb()?.bytes().to_owned(),
     )]);
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Year)?;
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Month)?;

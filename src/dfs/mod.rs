@@ -2,7 +2,7 @@ use hdk::hash_path::path::{Component, Path};
 use petgraph::{graph::NodeIndex, stable_graph::StableDiGraph};
 use std::convert::TryFrom;
 
-use crate::entries::{Index, IndexIndex, TimeIndex};
+use crate::entries::{Index, StringIndex, TimeIndex};
 use crate::errors::IndexError;
 
 pub(crate) mod methods;
@@ -19,7 +19,7 @@ impl std::fmt::Debug for GraphTimeItem {
         if components.len() > 0 {
             debug_struct.field(
                 "index",
-                &IndexIndex::try_from(components[0].clone()).unwrap().0,
+                &StringIndex::try_from(components[0].clone()).unwrap().0,
             );
             components.remove(0);
         };
@@ -29,13 +29,13 @@ impl std::fmt::Debug for GraphTimeItem {
                 debug_struct.field(
                     "index",
                     &Index::try_from(component)
-                        .expect("Could not convert component into TimeIndex or IndexIndex"),
+                        .expect("Could not convert component into TimeIndex or StringIndex"),
                 )
             } else {
                 debug_struct.field(
                     "time_index",
                     &time_index
-                        .expect("Could not convert component into TimeIndex or IndexIndex")
+                        .expect("Could not convert component into TimeIndex or StringIndex")
                         .0,
                 )
             };

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use hdk::{hash_path::path::Component, prelude::*};
 
-use crate::entries::{Index, IndexIndex, IndexType, TimeIndex};
+use crate::entries::{Index, IndexType, StringIndex, TimeIndex};
 use crate::errors::{IndexError, IndexResult};
 use crate::{INDEX_DEPTH, MAX_CHUNK_INTERVAL};
 
@@ -129,7 +129,7 @@ pub(crate) fn get_time_path(
         Utc,
     );
     let mut time_path = vec![Component::from(
-        IndexIndex(index).get_sb()?.bytes().to_owned(),
+        StringIndex(index).get_sb()?.bytes().to_owned(),
     )];
     add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Year)?;
     add_time_index_to_path::<TimeIndex>(&mut time_path, &from_timestamp, IndexType::Month)?;

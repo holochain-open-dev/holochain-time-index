@@ -77,9 +77,11 @@ use std::time::Duration;
 use hdk::prelude::*;
 
 mod bfs;
+mod convertions;
 mod dfs;
 pub mod errors;
-mod impls;
+mod impl_utils;
+
 /// Public methods exposed by lib
 pub mod methods;
 mod search;

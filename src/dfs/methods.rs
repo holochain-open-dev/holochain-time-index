@@ -6,7 +6,7 @@ use petgraph::visit::Dfs;
 use std::fmt::Debug;
 
 use crate::dfs::SearchState;
-use crate::entries::{Index, IndexIndex, IndexType, WrappedPath};
+use crate::entries::{Index, IndexType, StringIndex, WrappedPath};
 use crate::errors::{IndexError, IndexResult};
 use crate::search::get_naivedatetime;
 use crate::utils::find_divergent_time;
@@ -26,7 +26,7 @@ pub(crate) fn make_dfs_search<
     let mut search_state = SearchState::new();
     //Start path with index
     let mut paths = vec![Component::from(
-        IndexIndex(index).get_sb()?.bytes().to_owned(),
+        StringIndex(index).get_sb()?.bytes().to_owned(),
     )];
     //Determine and create the starting path based on index and divergence between timestamps
     let (mut found_path, index_level) = find_divergent_time(&from, &until)?;

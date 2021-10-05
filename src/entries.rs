@@ -1,3 +1,4 @@
+use chrono::NaiveDateTime;
 use std::time::Duration;
 
 use hdk::prelude::*;
@@ -9,7 +10,7 @@ pub struct Index {
 }
 
 #[derive(Clone, SerializedBytes, Debug, Serialize, Deserialize)]
-pub struct IndexIndex(pub String);
+pub struct StringIndex(pub String);
 
 #[derive(Clone, Eq, PartialEq, SerializedBytes, Debug, Serialize, Deserialize)]
 pub struct TimeIndex(pub u32);
@@ -27,3 +28,5 @@ pub enum IndexType {
     Minute,
     Second,
 }
+
+pub type IndexSegment = (String, Option<NaiveDateTime>, Option<Index>);

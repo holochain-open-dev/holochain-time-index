@@ -68,7 +68,6 @@ pub(crate) fn get_next_level_path_bfs(
     for path in paths {
         let mut lower_paths: Vec<Path> = path
             .children()?
-            .into_inner()
             .into_iter()
             .map(|link| Ok(Path::try_from(&link.tag)?))
             .filter_map(|path| {

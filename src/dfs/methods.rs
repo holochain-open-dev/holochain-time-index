@@ -114,7 +114,6 @@ pub(crate) fn make_dfs_search<
                     .clone(),
             )
             .children()?
-            .into_inner()
             .into_iter()
             .map(|link| Ok(Path::try_from(&link.tag)?))
             .collect::<IndexResult<Vec<Path>>>()?;
@@ -132,7 +131,6 @@ pub(crate) fn make_dfs_search<
                 //     WrappedPath(index.clone())
                 // );
                 let mut links = get_links(index.hash()?, link_tag.clone())?
-                    .into_inner()
                     .into_iter()
                     .map(|link| match get(link.target, GetOptions::latest())? {
                         Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
@@ -278,7 +276,6 @@ pub(crate) fn get_next_level_path_dfs(
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
     let mut lower_paths: Vec<Path> = chosen_path
         .children()?
-        .into_inner()
         .into_iter()
         .map(|link| Ok(Path::try_from(&link.tag)?))
         .filter_map(|path| {

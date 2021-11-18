@@ -280,13 +280,13 @@ lazy_static! {
     //Point at which links are considered spam and linked expressions are not allowed
     pub static ref ENFORCE_SPAM_LIMIT: usize = {
         // debug!("Attempting to set spam limit from: {:#?}", zome_info());
-        let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
+        let host_dna_config = dna_info().expect("Could not get zome configuration").properties;
         let properties = IndexConfiguration::try_from(host_dna_config)
             .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");
         properties.enforce_spam_limit
     };
     pub static ref MAX_CHUNK_INTERVAL: Duration = {
-        let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
+        let host_dna_config = dna_info().expect("Could not get zome configuration").properties;
         let properties = IndexConfiguration::try_from(host_dna_config)
             .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");
         Duration::from_millis(properties.max_chunk_interval as u64)

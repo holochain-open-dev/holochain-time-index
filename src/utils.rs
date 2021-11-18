@@ -9,7 +9,6 @@ use crate::{INDEX_DEPTH, MAX_CHUNK_INTERVAL};
 pub(crate) fn get_path_links_on_path(path: &Path) -> IndexResult<Vec<Path>> {
     let links = path
         .children()?
-        .into_inner()
         .into_iter()
         .map(|link| Ok(Path::try_from(&link.tag)?))
         .collect::<IndexResult<Vec<Path>>>()?;

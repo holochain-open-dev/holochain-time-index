@@ -101,7 +101,7 @@ use errors::{IndexError, IndexResult};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EntryChunkIndex {
     pub index: Index,
-    pub links: Links,
+    pub links: Vec<Link>,
 }
 
 /// Configuration object that should be set in your host DNA's properties
@@ -241,9 +241,9 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
 /// Removes a given indexed entry from the time tree
 pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
     let time_paths =
-        get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?.into_inner();
+        get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?;
     for time_path in time_paths {
-        let path_links = get_links(time_path.target.clone(), None)?.into_inner();
+        let path_links = get_links(time_path.target.clone(), None)?;
         let path_links: Vec<Link> = path_links
             .into_iter()
             .filter(|link| link.target == indexed_entry)
@@ -264,13 +264,11 @@ pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
 pub fn get_paths_for_path(path: Path, link_tag: Option<LinkTag>) -> IndexResult<Vec<Path>> {
     match link_tag {
         Some(link_tag) => Ok(get_links(path.hash()?, Some(link_tag))?
-            .into_inner()
             .into_iter()
             .map(|link| Ok(Path::try_from(&link.tag)?))
             .collect::<IndexResult<Vec<Path>>>()?),
         None => Ok(path
             .children()?
-            .into_inner()
             .into_iter()
             .map(|link| Ok(Path::try_from(&link.tag)?))
             .collect::<IndexResult<Vec<Path>>>()?),
@@ -282,13 +280,13 @@ lazy_static! {
     //Point at which links are considered spam and linked expressions are not allowed
     pub static ref ENFORCE_SPAM_LIMIT: usize = {
         // debug!("Attempting to set spam limit from: {:#?}", zome_info());
-        let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
+        let host_dna_config = dna_info().expect("Could not get zome configuration").properties;
         let properties = IndexConfiguration::try_from(host_dna_config)
             .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");
         properties.enforce_spam_limit
     };
     pub static ref MAX_CHUNK_INTERVAL: Duration = {
-        let host_dna_config = zome_info().expect("Could not get zome configuration").properties;
+        let host_dna_config = dna_info().expect("Could not get zome configuration").properties;
         let properties = IndexConfiguration::try_from(host_dna_config)
             .expect("Could not convert zome dna properties to IndexConfiguration. Please ensure that your dna properties contains a IndexConfiguration field.");
         Duration::from_millis(properties.max_chunk_interval as u64)

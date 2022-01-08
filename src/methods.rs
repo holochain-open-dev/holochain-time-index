@@ -285,18 +285,7 @@ pub(crate) fn get_links_and_load_for_time_span<
             results
         }
         SearchStrategy::Dfs => {
-            let mut results = make_dfs_search::<T>(index, &from, &until, &order, limit, link_tag)?;
-
-            match order {
-                Order::Desc => {
-                    results.sort_by(|a, b| b.entry_time().partial_cmp(&a.entry_time()).unwrap());
-                }
-                Order::Asc => {
-                    results.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap());
-                }
-            }
-
-            results
+            make_dfs_search::<T>(index, &from, &until, &order, limit, link_tag)?
         }
     })
 }

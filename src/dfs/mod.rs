@@ -121,7 +121,7 @@ impl SearchState {
         Ok(added_indexes)
     }
 
-    // /// Holochain debug dot representation of graph state
+    // // /// Holochain debug dot representation of graph state
     // pub(crate) fn display_dot_repr(&self) {
     //     debug!("{:#?}", Dot::new(&self.0));
     // }

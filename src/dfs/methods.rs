@@ -233,6 +233,10 @@ pub(crate) fn make_dfs_search<
     // search_state.display_dot_repr();
 
     Ok(if break_at_limit {
+        match order {
+            Order::Desc => out.sort_by(|a, b| b.entry_time().partial_cmp(&a.entry_time()).unwrap()),
+            Order::Asc => out.sort_by(|a, b| a.entry_time().partial_cmp(&b.entry_time()).unwrap())
+        }
         if out.len() > limit.unwrap() {
             let _vec2 = out.split_off(limit.unwrap());
             out
@@ -265,8 +269,8 @@ pub(crate) fn get_next_level_path_dfs(
         let chrono_path_a: NaiveDateTime = WrappedPath(patha.clone()).try_into().unwrap();
         let chrono_path_b: NaiveDateTime = WrappedPath(pathb.clone()).try_into().unwrap();
         match order {
-            Order::Desc => chrono_path_a.partial_cmp(&chrono_path_b).unwrap(),
-            Order::Asc => chrono_path_b.partial_cmp(&chrono_path_a).unwrap(),
+            Order::Desc => chrono_path_b.partial_cmp(&chrono_path_a).unwrap(),
+            Order::Asc => chrono_path_a.partial_cmp(&chrono_path_b).unwrap(),
         }
     });
 

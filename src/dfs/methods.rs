@@ -123,10 +123,10 @@ pub(crate) fn make_dfs_search<
                 }
             });
             for index in indexes {
-                debug!(
-                    "Getting links for path: {:#?}",
-                    WrappedPath(index.clone())
-                );
+                // debug!(
+                //     "Getting links for path: {:#?}",
+                //     WrappedPath(index.clone())
+                // );
                 let mut links = get_links(index.path_entry_hash()?, link_tag.clone())?
                     .into_iter()
                     .map(|link| match get(link.target, GetOptions::latest())? {

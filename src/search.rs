@@ -3,7 +3,6 @@ use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::entries::IndexType;
 use crate::errors::{IndexError, IndexResult};
-use crate::utils::get_path_links_on_path;
 use crate::INDEX_DEPTH;
 
 pub(crate) fn get_naivedatetime(
@@ -118,7 +117,7 @@ pub(crate) fn find_newest_time_path<
     //debug!("Finding links on IndexType: {:#?}\n\n", time_index);
 
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
-    let mut links = get_path_links_on_path(&path)?;
+    let mut links = path.children_paths()?;
     if links.len() == 0 {
         return Err(IndexError::InternalError(
             "Could not find any time paths for path",

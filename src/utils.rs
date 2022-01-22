@@ -5,16 +5,6 @@ use crate::entries::{Index, IndexType, StringIndex, TimeIndex};
 use crate::errors::{IndexError, IndexResult};
 use crate::{INDEX_DEPTH, MAX_CHUNK_INTERVAL};
 
-/// Get children on a given path and use link tag to create full path structure
-pub(crate) fn get_path_links_on_path(path: &Path) -> IndexResult<Vec<Path>> {
-    let links = path
-        .children()?
-        .into_iter()
-        .map(|link| Ok(Path::try_from(&link.tag)?))
-        .collect::<IndexResult<Vec<Path>>>()?;
-    Ok(links)
-}
-
 /// Find the overlapping path between two times and return vec of queries at given IndexTypes which still need to be performed
 pub(crate) fn find_divergent_time(
     from: &DateTime<Utc>,

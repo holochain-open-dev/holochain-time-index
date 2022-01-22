@@ -67,25 +67,19 @@ pub(crate) fn get_next_level_path_bfs(
     let mut out = vec![];
     for path in paths {
         let mut lower_paths: Vec<Path> = path
-            .children()?
+            .children_paths()?
             .into_iter()
-            .map(|link| Ok(Path::try_from(&link.tag)?))
             .filter_map(|path| {
-                if path.is_ok() {
-                    let path = path.unwrap();
-                    let path_wrapped = WrappedPath(path.clone());
-                    let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.try_into();
-                    if chrono_path.is_err() {
-                        return Some(Err(chrono_path.err().unwrap()));
-                    };
-                    let chrono_path = chrono_path.unwrap();
-                    if chrono_path >= from_time && chrono_path <= until_time {
-                        Some(Ok(path))
-                    } else {
-                        None
-                    }
+                let path_wrapped = WrappedPath(path.clone());
+                let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.try_into();
+                if chrono_path.is_err() {
+                    return Some(Err(chrono_path.err().unwrap()));
+                };
+                let chrono_path = chrono_path.unwrap();
+                if chrono_path >= from_time && chrono_path <= until_time {
+                    Some(Ok(path))
                 } else {
-                    Some(Err(path.err().unwrap()))
+                    None
                 }
             })
             .collect::<IndexResult<Vec<Path>>>()?;

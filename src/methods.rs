@@ -69,18 +69,18 @@ pub fn get_current_index(index: String) -> IndexResult<Option<Path>> {
     add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Second)?;
     let time_path = Path::from(time_path);
 
-    let indexes = time_path.children()?;
+    let indexes = time_path.children_paths()?;
     let ser_path = indexes
         .clone()
         .into_iter()
-        .map(|link| Ok(Index::try_from(Path::try_from(&link.tag)?)?.from))
+        .map(|path| Ok(Index::try_from(path)?.from))
         .collect::<IndexResult<Vec<Duration>>>()?;
     let permutation = permutation::sort_by(&ser_path[..], |a, b| a.partial_cmp(&b).unwrap());
     let mut ordered_indexes = permutation.apply_slice(&indexes[..]);
     ordered_indexes.reverse();
 
     match ordered_indexes.pop() {
-        Some(link) => match get(link.target, GetOptions::latest())? {
+        Some(link) => match get(link.path_entry_hash()?, GetOptions::latest())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
                 IndexError::InternalError("Expected element to contain app entry data"),
             )?)),
@@ -104,19 +104,19 @@ pub fn get_latest_index(index: String) -> IndexResult<Option<Path>> {
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Minute)?;
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Second)?;
 
-    let indexes = time_path.children()?;
+    let indexes = time_path.children_paths()?;
     let ser_path = indexes
         .clone()
         .into_iter()
-        .map(|link| Ok(Index::try_from(Path::try_from(&link.tag)?)?.from))
+        .map(|path| Ok(Index::try_from(path)?.from))
         .collect::<IndexResult<Vec<Duration>>>()?;
     let permutation = permutation::sort_by(&ser_path[..], |a, b| a.partial_cmp(&b).unwrap());
-    let mut ordered_indexes: Vec<Link> = permutation.apply_slice(&indexes[..]);
+    let mut ordered_indexes: Vec<Path> = permutation.apply_slice(&indexes[..]);
     ordered_indexes.reverse();
 
     //TODO: dont error out if cant find link target; just use next link
     match ordered_indexes.pop() {
-        Some(link) => match get(link.target, GetOptions::latest())? {
+        Some(link) => match get(link.path_entry_hash()?, GetOptions::latest())? {
             Some(chunk) => Ok(Some(chunk.entry().to_app_option()?.ok_or(
                 IndexError::InternalError("Expected element to contain app entry data"),
             )?)),
@@ -140,16 +140,15 @@ pub(crate) fn get_indexes_for_time_span(
     let mut out: Vec<EntryChunkIndex> = vec![];
 
     for path in paths {
-        let paths = path.children()?;
+        let paths = path.children_paths()?;
         let mut indexes = paths
             .clone()
             .into_iter()
-            .map(|link| {
-                let path = Path::try_from(&link.tag)?;
+            .map(|path| {
                 let index = Index::try_from(path.clone())?;
                 let entry_chunk_index = EntryChunkIndex {
                     index: index,
-                    links: get_links(path.hash()?, link_tag.clone())?,
+                    links: get_links(path.path_entry_hash()?, link_tag.clone())?,
                 };
                 Ok(entry_chunk_index)
             })
@@ -190,13 +189,12 @@ pub(crate) fn get_links_for_time_span(
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<Link> = vec![];
     for path in paths {
-        let paths = path.children()?;
+        let paths = path.children_paths()?;
         let mut indexes = paths
             .clone()
             .into_iter()
-            .map(|link| {
-                let path = Path::try_from(&link.tag)?;
-                let links = get_links(path.hash()?, link_tag.clone())?;
+            .map(|path| {
+                let links = get_links(path.path_entry_hash()?, link_tag.clone())?;
                 Ok(links)
             })
             .collect::<IndexResult<Vec<Vec<Link>>>>()?
@@ -240,13 +238,12 @@ pub(crate) fn get_links_and_load_for_time_span<
             let mut results: Vec<T> = vec![];
 
             for path in paths {
-                let paths = path.children()?;
+                let paths = path.children_paths()?;
                 let mut indexes = paths
                     .clone()
                     .into_iter()
-                    .map(|link| {
-                        let path = Path::try_from(&link.tag)?;
-                        let links = get_links(path.hash()?, link_tag.clone())?;
+                    .map(|path_child| {
+                        let links = get_links(path_child.path_entry_hash()?, link_tag.clone())?;
                         Ok(links)
                     })
                     .collect::<IndexResult<Vec<Vec<Link>>>>()?

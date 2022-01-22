@@ -113,10 +113,7 @@ pub(crate) fn make_dfs_search<
                     .0
                     .clone(),
             )
-            .children()?
-            .into_iter()
-            .map(|link| Ok(Path::try_from(&link.tag)?))
-            .collect::<IndexResult<Vec<Path>>>()?;
+            .children_paths()?;
             indexes.sort_by(|a, b| {
                 let index_chunk = Index::try_from(a.clone()).unwrap();
                 let index_chunk_b = Index::try_from(b.clone()).unwrap();
@@ -126,11 +123,11 @@ pub(crate) fn make_dfs_search<
                 }
             });
             for index in indexes {
-                // debug!(
-                //     "Getting links for path: {:#?}",
-                //     WrappedPath(index.clone())
-                // );
-                let mut links = get_links(index.hash()?, link_tag.clone())?
+                debug!(
+                    "Getting links for path: {:#?}",
+                    WrappedPath(index.clone())
+                );
+                let mut links = get_links(index.path_entry_hash()?, link_tag.clone())?
                     .into_iter()
                     .map(|link| match get(link.target, GetOptions::latest())? {
                         Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
@@ -279,38 +276,32 @@ pub(crate) fn get_next_level_path_dfs(
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
     let mut lower_paths: Vec<Path> = chosen_path
-        .children()?
+        .children_paths()?
         .into_iter()
-        .map(|link| Ok(Path::try_from(&link.tag)?))
         .filter_map(|path| {
             // debug!("Got path in map {:#?}", path);
-            if path.is_ok() {
-                let path = path.unwrap();
-                let path_wrapped = WrappedPath(path.clone());
-                let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.clone().try_into();
-                // debug!("Got path in lowerpaths fn: {:#?}. {:#?}. {:#?}/{:#?}. {:#?}", path_wrapped, chrono_path, from_time, until_time, index_type);
-                if chrono_path.is_err() {
-                    return Some(Err(chrono_path.err().unwrap()));
-                };
-                let chrono_path = chrono_path.unwrap();
-                match order {
-                    Order::Desc => {
-                        if chrono_path <= from_time && chrono_path >= until_time {
-                            Some(Ok(path))
-                        } else {
-                            None
-                        }
-                    }
-                    Order::Asc => {
-                        if chrono_path >= from_time && chrono_path <= until_time {
-                            Some(Ok(path))
-                        } else {
-                            None
-                        }
+            let path_wrapped = WrappedPath(path.clone());
+            let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.clone().try_into();
+            // debug!("Got path in lowerpaths fn: {:#?}. {:#?}. {:#?}/{:#?}. {:#?}", path_wrapped, chrono_path, from_time, until_time, index_type);
+            if chrono_path.is_err() {
+                return Some(Err(chrono_path.err().unwrap()));
+            };
+            let chrono_path = chrono_path.unwrap();
+            match order {
+                Order::Desc => {
+                    if chrono_path <= from_time && chrono_path >= until_time {
+                        Some(Ok(path))
+                    } else {
+                        None
                     }
                 }
-            } else {
-                Some(Err(path.err().unwrap()))
+                Order::Asc => {
+                    if chrono_path >= from_time && chrono_path <= until_time {
+                        Some(Ok(path))
+                    } else {
+                        None
+                    }
+                }
             }
         })
         .collect::<IndexResult<Vec<Path>>>()?;

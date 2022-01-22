@@ -194,7 +194,7 @@ pub fn get_current_index(
 ) -> IndexResult<Option<EntryChunkIndex>> {
     match methods::get_current_index(index)? {
         Some(index) => {
-            let links = get_links(index.hash()?, link_tag)?;
+            let links = get_links(index.path_entry_hash()?, link_tag)?;
             Ok(Some(EntryChunkIndex {
                 index: Index::try_from(index)?,
                 links: links,
@@ -213,7 +213,7 @@ pub fn get_most_recent_indexes(
     let recent_index = methods::get_latest_index(index)?;
     match recent_index {
         Some(index) => {
-            let links = get_links(index.hash()?, link_tag)?;
+            let links = get_links(index.path_entry_hash()?, link_tag)?;
             Ok(Some(EntryChunkIndex {
                 index: Index::try_from(index)?,
                 links: links,
@@ -232,9 +232,9 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
 ) -> IndexResult<()> {
     let index = methods::create_for_timestamp(index, data.entry_time())?;
     //Create link from end of time path to entry that should be indexed
-    create_link(index.hash()?, data.hash()?, link_tag)?;
+    create_link(index.path_entry_hash()?, data.hash()?, link_tag)?;
     //Create link from entry that should be indexed back to time tree so tree links can be found when starting from entry
-    create_link(data.hash()?, index.hash()?, LinkTag::new("time_path"))?;
+    create_link(data.hash()?, index.path_entry_hash()?, LinkTag::new("time_path"))?;
     Ok(())
 }
 
@@ -258,21 +258,6 @@ pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
     }
 
     Ok(())
-}
-
-/// Returns the child paths on submitted paths. This allows the manual traversal down a time tree to get results as desired by callee
-pub fn get_paths_for_path(path: Path, link_tag: Option<LinkTag>) -> IndexResult<Vec<Path>> {
-    match link_tag {
-        Some(link_tag) => Ok(get_links(path.hash()?, Some(link_tag))?
-            .into_iter()
-            .map(|link| Ok(Path::try_from(&link.tag)?))
-            .collect::<IndexResult<Vec<Path>>>()?),
-        None => Ok(path
-            .children()?
-            .into_iter()
-            .map(|link| Ok(Path::try_from(&link.tag)?))
-            .collect::<IndexResult<Vec<Path>>>()?),
-    }
 }
 
 // Library configuration setup

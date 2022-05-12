@@ -73,7 +73,7 @@ pub(crate) fn make_dfs_search<
         //         .collect::<Vec<WrappedPath>>(),
         //     level
         // );
-        //search_state.display_dot_repr();
+        // search_state.display_dot_repr();
 
         //Save the retreived paths to the Graph for later use
         //Search node returned so we can add the next path links from the first path item in previous recursion
@@ -81,7 +81,7 @@ pub(crate) fn make_dfs_search<
             search_state.populate_from_paths_forward(paths.clone(), depth, search_node)?;
     }
 
-    //search_state.display_dot_repr();
+    // search_state.display_dot_repr();
 
     //Determine how far down the graph we should search before trying to get final links/entries
     let max_depth_size = DEFAULT_INDEX_DEPTH.len() + INDEX_DEPTH.len();
@@ -266,8 +266,8 @@ pub(crate) fn get_next_level_path_dfs(
         let chrono_path_a: NaiveDateTime = WrappedPath(patha.clone()).try_into().unwrap();
         let chrono_path_b: NaiveDateTime = WrappedPath(pathb.clone()).try_into().unwrap();
         match order {
-            Order::Desc => chrono_path_b.partial_cmp(&chrono_path_a).unwrap(),
-            Order::Asc => chrono_path_a.partial_cmp(&chrono_path_b).unwrap(),
+            Order::Desc => chrono_path_a.partial_cmp(&chrono_path_b).unwrap(),
+            Order::Asc => chrono_path_b.partial_cmp(&chrono_path_a).unwrap(),
         }
     });
 

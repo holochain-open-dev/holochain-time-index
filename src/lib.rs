@@ -246,7 +246,7 @@ pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
         let path_links = get_links(time_path.target.clone(), None)?;
         let path_links: Vec<Link> = path_links
             .into_iter()
-            .filter(|link| EntryHash::from(l.target) == indexed_entry)
+            .filter(|link| EntryHash::from(link.target) == indexed_entry)
             .collect();
         for path_link in path_links {
             // debug!(

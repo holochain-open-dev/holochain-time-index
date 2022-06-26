@@ -201,26 +201,7 @@ pub fn get_current_index(
 ) -> IndexResult<Option<EntryChunkIndex>> {
     match methods::get_current_index(index)? {
         Some(index) => {
-            let links = get_links(index.path_entry_hash()?, LinkTypes::Index, link_tag)?;
-            Ok(Some(EntryChunkIndex {
-                index: Index::try_from(index)?,
-                links: links,
-            }))
-        }
-        None => Ok(None),
-    }
-}
-
-/// Searches time index for most recent index and returns links from that index
-/// Guaranteed to return results if some index's have been made
-pub fn get_most_recent_indexes(
-    index: String,
-    link_tag: Option<LinkTag>,
-) -> IndexResult<Option<EntryChunkIndex>> {
-    let recent_index = methods::get_latest_index(index)?;
-    match recent_index {
-        Some(index) => {
-            let links = get_links(index.path_entry_hash()?, LinkTypes::Index, link_tag)?;
+            let links = get_links(index.path_entry_hash()?, LinkTypes::PathLink, link_tag)?;
             Ok(Some(EntryChunkIndex {
                 index: Index::try_from(index)?,
                 links: links,

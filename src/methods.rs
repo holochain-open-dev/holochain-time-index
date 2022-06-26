@@ -183,10 +183,18 @@ pub(crate) fn get_links_for_time_span(
         Order::Asc
     };
 
+    let paths = match order {
+        Order::Desc => {
+            find_paths_for_time_span(until, from, index)?
+        },
+        Order::Asc => {
+            find_paths_for_time_span(from, until, index)?
+        }
+    };
+
     if limit.is_some() {
         debug!("hc_time_index::get_links_for_time_span: WARNING: Limit not supported on Bfs strategy. All links between bounds will be retrieved and returned");
     };
-    let paths = find_paths_for_time_span(from, until, index)?;
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<Link> = vec![];
     for path in paths {
@@ -235,7 +243,14 @@ pub(crate) fn get_links_and_load_for_time_span<
 
     Ok(match strategy {
         SearchStrategy::Bfs => {
-            let paths = find_paths_for_time_span(from, until, index)?;
+            let paths = match order {
+                Order::Desc => {
+                    find_paths_for_time_span(until, from, index)?
+                },
+                Order::Asc => {
+                    find_paths_for_time_span(from, until, index)?
+                }
+            };
             let mut results: Vec<T> = vec![];
 
             for path in paths {

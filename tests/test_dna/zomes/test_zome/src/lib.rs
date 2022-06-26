@@ -84,16 +84,6 @@ pub fn get_current_addresses(
 }
 
 #[hdk_extern]
-pub fn get_most_recent_indexes(
-    input: GetCurrentAddressesInput,
-) -> ExternResult<Option<EntryChunkIndex>> {
-    Ok(
-        hc_time_index::get_most_recent_indexes(input.index, input.link_tag)
-            .map_err(|error| utils::err(&format!("{}", error)))?,
-    )
-}
-
-#[hdk_extern]
 pub fn remove_index(address: EntryHash) -> ExternResult<()> {
     Ok(hc_time_index::remove_index(address).map_err(|error| utils::err(&format!("{}", error)))?)
 }

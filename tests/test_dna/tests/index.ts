@@ -92,6 +92,13 @@ test("test get index dfs", async (t) => {
     console.log("Got results", results_between);
     //@ts-ignore
     t.equal(results_between.length, 5)
+    //@ts-ignore
+    for (let i=0; i < results_between.length; i++) {
+      if (i != 0) {
+        //@ts-ignore
+        t.assert(results_between[i].timestamp < results_between[i-1].timestamp)
+      }
+    }
 
     //Get results in ascending order
     let asc_results = await alice.cells[0].callZome({
@@ -216,25 +223,6 @@ test("test simple index", async (t) => {
       fn_name: "index_entry",
       payload: {title: "A test index2", created: date.toISOString()}
     })
-    
-    //Result should be two if index depth == seconds
-    let get_index = await alice.cells[0].callZome({
-      zome_name: "test_zome", 
-      fn_name: "get_most_recent_indexes",
-      payload: {index: "test_index"}
-    })
-    console.log("Got index", get_index);
-    //@ts-ignore
-    t.deepEqual(get_index.links.length, 2);
-
-    let get_index_current = await alice.cells[0].callZome({
-      zome_name: "test_zome", 
-      fn_name: "get_current_addresses",
-      payload: {index: "test_index"}
-    })
-    console.log("Got index", get_index_current);
-    //@ts-ignore
-    t.deepEqual(get_index.links.length, 2);
 
     //Create another index for one day ago
     var dateOffset = (24*60*60*1000); //1 day ago

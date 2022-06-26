@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use hdk::hash_path::path::Component;
 use hdk::prelude::*;
+use hdk::prelude::info::ScopedLinkType;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::Dfs;
 use std::fmt::Debug;
@@ -10,10 +11,12 @@ use crate::entries::{Index, IndexType, StringIndex, WrappedPath};
 use crate::errors::{IndexError, IndexResult};
 use crate::search::get_naivedatetime;
 use crate::utils::find_divergent_time;
-use crate::{IndexableEntry, Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH, LinkTypes};
+use crate::{IndexableEntry, Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH};
 
 pub(crate) fn make_dfs_search<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + Debug,
+    ILT: LinkTypeFilterExt + Clone,
+    PLT: Into<ScopedLinkType> + Clone
 >(
     index: String,
     from: &DateTime<Utc>,
@@ -21,6 +24,8 @@ pub(crate) fn make_dfs_search<
     order: &Order,
     limit: Option<usize>,
     link_tag: Option<LinkTag>,
+    index_link_type: ILT,
+    path_link_type: PLT
 ) -> IndexResult<Vec<T>> {
     let mut out: Vec<T> = vec![];
     let mut search_state = SearchState::new();
@@ -59,7 +64,7 @@ pub(crate) fn make_dfs_search<
             IndexType::Second => 6,
         };
         //Get the next paths for the current path
-        paths = get_next_level_path_dfs(paths, &from, &until, &level, &order)?;
+        paths = get_next_level_path_dfs(paths, &from, &until, &level, &order, path_link_type.clone())?;
         //If we dont get any paths at the next index level then we should return empty vec
         if paths.len() == 0 {
             return Ok(vec![]);
@@ -112,7 +117,7 @@ pub(crate) fn make_dfs_search<
                     .unwrap()
                     .0
                     .clone(),
-            ).typed(LinkTypes::PathLink)?.children_paths()?;
+            ).typed(path_link_type.clone())?.children_paths()?;
             indexes.sort_by(|a, b| {
                 let index_chunk = Index::try_from(a.path.clone()).unwrap();
                 let index_chunk_b = Index::try_from(b.path.clone()).unwrap();
@@ -126,7 +131,7 @@ pub(crate) fn make_dfs_search<
                 //     "Getting links for path: {:#?}",
                 //     WrappedPath(index.clone())
                 // );
-                let mut links = get_links(index.path_entry_hash()?, LinkTypes::Index, link_tag.clone())?
+                let mut links = get_links(index.path_entry_hash()?, index_link_type.clone(), link_tag.clone())?
                     .into_iter()
                     .map(|link| match get(link.target, GetOptions::latest())? {
                         Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
@@ -197,7 +202,7 @@ pub(crate) fn make_dfs_search<
                     _ => return Err(IndexError::InternalError("Expected path to be length 2-7")),
                 };
                 //debug!("No node found with correct depth but node found where last end_node was of correct depth, executing next branch of search. Has index: {:#?}", next_node.unwrap());
-                paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order)?;
+                paths = get_next_level_path_dfs(vec![node], &from, &until, &index_type, &order, path_link_type.clone())?;
                 // debug!(
                 //     "Got next paths in dfs search tree: {:#?}",
                 //     paths
@@ -254,6 +259,7 @@ pub(crate) fn get_next_level_path_dfs(
     until: &DateTime<Utc>,
     index_type: &IndexType,
     order: &Order,
+    path_link_type: impl Into<ScopedLinkType>
 ) -> IndexResult<Vec<Path>> {
     //Get the naivedatetime representation for from & until
     let (from_time, until_time) = match get_naivedatetime(from, until, index_type) {
@@ -274,7 +280,7 @@ pub(crate) fn get_next_level_path_dfs(
     // debug!("Got chosen path: {:#?}", WrappedPath(chosen_path.clone()));
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
-    let mut lower_paths: Vec<Path> = chosen_path.typed(LinkTypes::PathLink)?
+    let mut lower_paths: Vec<Path> = chosen_path.typed(path_link_type)?
         .children_paths()?
         .into_iter()
         .filter_map(|path| {

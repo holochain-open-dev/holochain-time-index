@@ -27,3 +27,9 @@ impl IndexableEntry for TestEntry {
         hash_entry(self)
     }
 }
+
+#[hdk_link_types]
+pub enum LinkTypes {
+    Index,
+    Path
+}

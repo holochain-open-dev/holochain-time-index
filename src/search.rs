@@ -3,7 +3,7 @@ use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::entries::IndexType;
 use crate::errors::{IndexError, IndexResult};
-use crate::{INDEX_DEPTH, LinkTypes};
+use crate::INDEX_DEPTH;
 
 pub(crate) fn get_naivedatetime(
     from: &DateTime<Utc>,
@@ -84,9 +84,11 @@ pub(crate) fn get_naivedatetime(
 /// Returns path passed in params if maximum depth has been reached
 pub(crate) fn find_newest_time_path<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + Into<u32>,
+    PLT: Into<ScopedLinkType>
 >(
     path: Path,
     time_index: IndexType,
+    path_link_type: PLT
 ) -> IndexResult<Path> {
     match time_index {
         IndexType::Year => (),
@@ -117,7 +119,7 @@ pub(crate) fn find_newest_time_path<
     //debug!("Finding links on IndexType: {:#?}\n\n", time_index);
 
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
-    let mut links = path.typed(LinkTypes::PathLink)?.children_paths()?;
+    let mut links = path.typed(path_link_type)?.children_paths()?;
     if links.len() == 0 {
         return Err(IndexError::Wasm(wasm_error!(WasmErrorInner::Host(String::from("Could not find any time paths for path")))));
     };

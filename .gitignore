@@ -1,7 +1,7 @@
 /target
 Cargo.lock
-/tests/test_zome/tests/node_modules/*
-/tests/test_zome/target
-/tests/test_zome/tests/out.log
+/tests/test_dna/tests/node_modules/*
+/tests/test_dna/target
+/tests/test_dna/tests/out.log
 *.dna
 .cargo

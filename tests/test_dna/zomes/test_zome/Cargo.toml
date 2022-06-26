@@ -1,12 +1,12 @@
 [package]
-name = "testing_zome"
+name = "test_zome"
 version = "0.1.0"
 authors = ["jdeepee <joshuadparkin@gmail.com>"]
 edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-name = "testing_zome"
+name = "test_zome"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,11 +17,12 @@ opt-level = "z"
 opt-level = "z"
 
 [dependencies]
-hdk = "0.0.115"
+hdk = "0.0.138"
 
 #derive_more = "0"
 serde = "*"
 lazy_static = "*"
 chrono = { version = "0.4", features = ["serde"] }
 mut_static = "*"
-hc_time_index = { path = "../../" }
+hc_time_index = { path = "../../../../" }
+test_zome_integrity = { path = "../test_zome_integrity" }

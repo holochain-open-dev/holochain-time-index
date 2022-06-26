@@ -10,7 +10,7 @@ use crate::entries::{Index, IndexType, StringIndex, WrappedPath};
 use crate::errors::{IndexError, IndexResult};
 use crate::search::get_naivedatetime;
 use crate::utils::find_divergent_time;
-use crate::{IndexableEntry, Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH};
+use crate::{IndexableEntry, Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH, LinkTypes};
 
 pub(crate) fn make_dfs_search<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + Debug,
@@ -112,11 +112,10 @@ pub(crate) fn make_dfs_search<
                     .unwrap()
                     .0
                     .clone(),
-            )
-            .children_paths()?;
+            ).typed(LinkTypes::PathLink)?.children_paths()?;
             indexes.sort_by(|a, b| {
-                let index_chunk = Index::try_from(a.clone()).unwrap();
-                let index_chunk_b = Index::try_from(b.clone()).unwrap();
+                let index_chunk = Index::try_from(a.path.clone()).unwrap();
+                let index_chunk_b = Index::try_from(b.path.clone()).unwrap();
                 match order {
                     Order::Desc => index_chunk_b.from.partial_cmp(&index_chunk.from).unwrap(),
                     Order::Asc => index_chunk.from.partial_cmp(&index_chunk_b.from).unwrap(),
@@ -127,7 +126,7 @@ pub(crate) fn make_dfs_search<
                 //     "Getting links for path: {:#?}",
                 //     WrappedPath(index.clone())
                 // );
-                let mut links = get_links(index.path_entry_hash()?, link_tag.clone())?
+                let mut links = get_links(index.path_entry_hash()?, LinkTypes::Index, link_tag.clone())?
                     .into_iter()
                     .map(|link| match get(link.target, GetOptions::latest())? {
                         Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
@@ -275,12 +274,12 @@ pub(crate) fn get_next_level_path_dfs(
     // debug!("Got chosen path: {:#?}", WrappedPath(chosen_path.clone()));
 
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
-    let mut lower_paths: Vec<Path> = chosen_path
+    let mut lower_paths: Vec<Path> = chosen_path.typed(LinkTypes::PathLink)?
         .children_paths()?
         .into_iter()
         .filter_map(|path| {
             // debug!("Got path in map {:#?}", path);
-            let path_wrapped = WrappedPath(path.clone());
+            let path_wrapped = WrappedPath(path.path.clone());
             let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.clone().try_into();
             // debug!("Got path in lowerpaths fn: {:#?}. {:#?}. {:#?}/{:#?}. {:#?}", path_wrapped, chrono_path, from_time, until_time, index_type);
             if chrono_path.is_err() {
@@ -290,14 +289,14 @@ pub(crate) fn get_next_level_path_dfs(
             match order {
                 Order::Desc => {
                     if chrono_path <= from_time && chrono_path >= until_time {
-                        Some(Ok(path))
+                        Some(Ok(path.path))
                     } else {
                         None
                     }
                 }
                 Order::Asc => {
                     if chrono_path >= from_time && chrono_path <= until_time {
-                        Some(Ok(path))
+                        Some(Ok(path.path))
                     } else {
                         None
                     }

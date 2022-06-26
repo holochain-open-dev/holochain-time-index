@@ -73,6 +73,7 @@ extern crate lazy_static;
 
 use chrono::{DateTime, Utc};
 use std::time::Duration;
+use holochain_deterministic_integrity::prelude::*;
 
 use hdk::prelude::*;
 
@@ -122,6 +123,12 @@ pub(crate) enum Order {
     Asc,
 }
 
+#[hdk_link_types]
+pub enum LinkTypes {
+    PathLink,
+    Index
+}
+
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
 /// TODO: would be cool to support DFS and BFS here
@@ -165,7 +172,7 @@ pub fn get_links_for_time_span(
 
 /// Get links for index that exist between two timestamps and attempt to serialize link targets to T
 pub fn get_links_and_load_for_time_span<
-    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug,
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug
 >(
     index: String,
     from: DateTime<Utc>,
@@ -194,7 +201,7 @@ pub fn get_current_index(
 ) -> IndexResult<Option<EntryChunkIndex>> {
     match methods::get_current_index(index)? {
         Some(index) => {
-            let links = get_links(index.path_entry_hash()?, link_tag)?;
+            let links = get_links(index.path_entry_hash()?, LinkTypes::Index, link_tag)?;
             Ok(Some(EntryChunkIndex {
                 index: Index::try_from(index)?,
                 links: links,
@@ -213,7 +220,7 @@ pub fn get_most_recent_indexes(
     let recent_index = methods::get_latest_index(index)?;
     match recent_index {
         Some(index) => {
-            let links = get_links(index.path_entry_hash()?, link_tag)?;
+            let links = get_links(index.path_entry_hash()?, LinkTypes::Index, link_tag)?;
             Ok(Some(EntryChunkIndex {
                 index: Index::try_from(index)?,
                 links: links,
@@ -232,18 +239,18 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
 ) -> IndexResult<()> {
     let index = methods::create_for_timestamp(index, data.entry_time())?;
     //Create link from end of time path to entry that should be indexed
-    create_link(index.path_entry_hash()?, data.hash()?, HdkLinkType::Any, link_tag)?;
+    create_link(index.path_entry_hash()?, data.hash()?, LinkTypes::Index, link_tag)?;
     //Create link from entry that should be indexed back to time tree so tree links can be found when starting from entry
-    create_link(data.hash()?, index.path_entry_hash()?, HdkLinkType::Any, LinkTag::new("time_path"))?;
+    create_link(data.hash()?, index.path_entry_hash()?, LinkTypes::Index, LinkTag::new("time_path"))?;
     Ok(())
 }
 
 /// Removes a given indexed entry from the time tree
 pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
     let time_paths =
-        get_links(indexed_entry.clone(), Some(LinkTag::new("time_path")))?;
+        get_links(indexed_entry.clone(), LinkTypes::Index, Some(LinkTag::new("time_path")))?;
     for time_path in time_paths {
-        let path_links = get_links(time_path.target.clone(), None)?;
+        let path_links = get_links(time_path.target.clone(), LinkTypes::Index, None)?;
         let path_links: Vec<Link> = path_links
             .into_iter()
             .filter(|link| EntryHash::from(link.target.to_owned()) == indexed_entry)

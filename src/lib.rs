@@ -232,9 +232,9 @@ pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
 ) -> IndexResult<()> {
     let index = methods::create_for_timestamp(index, data.entry_time())?;
     //Create link from end of time path to entry that should be indexed
-    create_link(index.path_entry_hash()?, data.hash()?, link_tag)?;
+    create_link(index.path_entry_hash()?, data.hash()?, HdkLinkType::Any, link_tag)?;
     //Create link from entry that should be indexed back to time tree so tree links can be found when starting from entry
-    create_link(data.hash()?, index.path_entry_hash()?, LinkTag::new("time_path"))?;
+    create_link(data.hash()?, index.path_entry_hash()?, HdkLinkType::Any, LinkTag::new("time_path"))?;
     Ok(())
 }
 
@@ -246,7 +246,7 @@ pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
         let path_links = get_links(time_path.target.clone(), None)?;
         let path_links: Vec<Link> = path_links
             .into_iter()
-            .filter(|link| link.target == indexed_entry)
+            .filter(|link| EntryHash::from(link.target.to_owned()) == indexed_entry)
             .collect();
         for path_link in path_links {
             // debug!(

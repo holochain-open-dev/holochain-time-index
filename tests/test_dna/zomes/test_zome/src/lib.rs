@@ -41,18 +41,17 @@ pub fn get_indexes_for_time_span(
     .map_err(|error| utils::err(&format!("{}", error)))
 }
 
-// #[hdk_extern]
-// pub fn get_links_for_time_span(input: GetAddressesSinceInput) -> ExternResult<Vec<Link>> {
-//     Ok(hc_time_index::get_links_for_time_span(
-//         input.index,
-//         input.from,
-//         input.until,
-//         input.link_tag,
-//         hc_time_index::SearchStrategy::Dfs,
-//         Some(10),
-//     )
-//     .map_err(|err| WasmError::Host(String::from(err)))?)
-// }
+#[hdk_extern]
+pub fn get_links_for_time_span(input: GetAddressesSinceInput) -> ExternResult<Vec<Link>> {
+    Ok(hc_time_index::get_links_for_time_span(
+        input.index,
+        input.from,
+        input.until,
+        input.link_tag,
+        Some(10),
+    )
+    .map_err(|error| utils::err(&format!("{}", error)))?)
+}
 
 #[hdk_extern]
 pub fn get_links_and_load_for_time_span(input: GetAddressesSinceInput) -> ExternResult<Vec<TestEntry>> {

@@ -117,11 +117,9 @@ pub(crate) fn find_newest_time_path<
     //debug!("Finding links on IndexType: {:#?}\n\n", time_index);
 
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
-    let mut links = path.typed(LinkTypes::Index)?.children_paths()?;
+    let mut links = path.typed(LinkTypes::PathLink)?.children_paths()?;
     if links.len() == 0 {
-        return Err(IndexError::InternalError(
-            "Could not find any time paths for path",
-        ));
+        return Err(IndexError::Wasm(wasm_error!(WasmErrorInner::Host(String::from("Could not find any time paths for path")))));
     };
     links.sort_by(|a, b| {
         let a_val: Vec<Component> = a.path.to_owned().into();

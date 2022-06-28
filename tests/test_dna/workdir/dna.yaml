@@ -1,11 +1,19 @@
 ---
-manifest_version: 1
+manifest_version: "1"
 name: "time-index-test"
-uid: 00000000-0000-0000-0000-000000000000
-properties: {
-  "enforce_spam_limit": 20,
-  "max_chunk_interval": 1000,
-}
-zomes: 
-  - name: testing_zome
-    bundled: ../target/wasm32-unknown-unknown/release/testing_zome.wasm
+integrity:
+  uid: 00000000-0000-0000-0000-000000000000
+  properties: {
+    "enforce_spam_limit": 20,
+    "max_chunk_interval": 1000,
+  }
+  origin_time: 2022-02-11T23:05:19.470323Z
+  zomes:
+    - name: test_zome_integrity
+      bundled: ../target/wasm32-unknown-unknown/release/test_zome_integrity.wasm
+coordinator:
+  zomes:
+    - name: test_zome
+      bundled: ../target/wasm32-unknown-unknown/release/test_zome.wasm
+      dependencies:
+        - name: test_zome_integrity

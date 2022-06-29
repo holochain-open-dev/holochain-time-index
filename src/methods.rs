@@ -10,6 +10,7 @@ use crate::utils::{add_time_index_to_path, get_index_for_timestamp, get_time_pat
 use crate::{
     entries::{Index, IndexType, StringIndex, TimeIndex},
     EntryChunkIndex, IndexableEntry, SearchStrategy, MAX_CHUNK_INTERVAL,
+    LinkTypes,
 };
 use crate::{
     errors::{IndexError, IndexResult},
@@ -45,9 +46,9 @@ impl Index {
         time_path.push(SerializedBytes::try_from(self)?.bytes().to_owned().into());
 
         //Create time tree
-        let time_path = Path::from(time_path);
+        let time_path = Path::from(time_path).typed(LinkTypes::PathLink)?;
         time_path.ensure()?;
-        Ok(time_path)
+        Ok(time_path.path)
     }
 }
 
@@ -67,13 +68,13 @@ pub fn get_current_index(index: String) -> IndexResult<Option<Path>> {
     add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Hour)?;
     add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Minute)?;
     add_time_index_to_path::<TimeIndex>(&mut time_path, &now, IndexType::Second)?;
-    let time_path = Path::from(time_path);
+    let time_path = Path::from(time_path).typed(LinkTypes::PathLink)?;
 
     let indexes = time_path.children_paths()?;
     let ser_path = indexes
         .clone()
         .into_iter()
-        .map(|path| Ok(Index::try_from(path)?.from))
+        .map(|path| Ok(Index::try_from(path.path)?.from))
         .collect::<IndexResult<Vec<Duration>>>()?;
     let permutation = permutation::sort_by(&ser_path[..], |a, b| a.partial_cmp(&b).unwrap());
     let mut ordered_indexes = permutation.apply_slice(&indexes[..]);
@@ -104,7 +105,7 @@ pub fn get_latest_index(index: String) -> IndexResult<Option<Path>> {
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Minute)?;
     let time_path = find_newest_time_path::<TimeIndex>(time_path, IndexType::Second)?;
 
-    let indexes = time_path.children_paths()?;
+    let indexes = time_path.typed(LinkTypes::PathLink)?.children_paths()?.into_iter().map(|val| val.path).collect::<Vec<_>>();
     let ser_path = indexes
         .clone()
         .into_iter()
@@ -140,15 +141,15 @@ pub(crate) fn get_indexes_for_time_span(
     let mut out: Vec<EntryChunkIndex> = vec![];
 
     for path in paths {
-        let paths = path.children_paths()?;
+        let paths = path.typed(LinkTypes::PathLink)?.children_paths()?;
         let mut indexes = paths
             .clone()
             .into_iter()
             .map(|path| {
-                let index = Index::try_from(path.clone())?;
+                let index = Index::try_from(path.path.clone())?;
                 let entry_chunk_index = EntryChunkIndex {
                     index: index,
-                    links: get_links(path.path_entry_hash()?, link_tag.clone())?,
+                    links: get_links(path.path_entry_hash()?, LinkTypes::Index, link_tag.clone())?,
                 };
                 Ok(entry_chunk_index)
             })
@@ -182,19 +183,27 @@ pub(crate) fn get_links_for_time_span(
         Order::Asc
     };
 
+    let paths = match order {
+        Order::Desc => {
+            find_paths_for_time_span(until, from, index)?
+        },
+        Order::Asc => {
+            find_paths_for_time_span(from, until, index)?
+        }
+    };
+
     if limit.is_some() {
         debug!("hc_time_index::get_links_for_time_span: WARNING: Limit not supported on Bfs strategy. All links between bounds will be retrieved and returned");
     };
-    let paths = find_paths_for_time_span(from, until, index)?;
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<Link> = vec![];
     for path in paths {
-        let paths = path.children_paths()?;
+        let paths = path.typed(LinkTypes::PathLink)?.children_paths()?;
         let mut indexes = paths
             .clone()
             .into_iter()
             .map(|path| {
-                let links = get_links(path.path_entry_hash()?, link_tag.clone())?;
+                let links = get_links(path.path_entry_hash()?, LinkTypes::Index, link_tag.clone())?;
                 Ok(links)
             })
             .collect::<IndexResult<Vec<Vec<Link>>>>()?
@@ -217,7 +226,7 @@ pub(crate) fn get_links_for_time_span(
 
 /// Get all links that exist for some time period between from -> until
 pub(crate) fn get_links_and_load_for_time_span<
-    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug,
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug
 >(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
@@ -234,16 +243,23 @@ pub(crate) fn get_links_and_load_for_time_span<
 
     Ok(match strategy {
         SearchStrategy::Bfs => {
-            let paths = find_paths_for_time_span(from, until, index)?;
+            let paths = match order {
+                Order::Desc => {
+                    find_paths_for_time_span(until, from, index)?
+                },
+                Order::Asc => {
+                    find_paths_for_time_span(from, until, index)?
+                }
+            };
             let mut results: Vec<T> = vec![];
 
             for path in paths {
-                let paths = path.children_paths()?;
+                let paths = path.typed(LinkTypes::PathLink)?.children_paths()?;
                 let mut indexes = paths
                     .clone()
                     .into_iter()
                     .map(|path_child| {
-                        let links = get_links(path_child.path_entry_hash()?, link_tag.clone())?;
+                        let links = get_links(path_child.path_entry_hash()?, LinkTypes::Index, link_tag.clone())?;
                         Ok(links)
                     })
                     .collect::<IndexResult<Vec<Vec<Link>>>>()?

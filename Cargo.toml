@@ -19,6 +19,7 @@ opt-level = "z"
 
 [dependencies]
 hdk = "0.0"
+holochain_deterministic_integrity = "0.0"
 
 #derive_more = "0"
 serde = "1"

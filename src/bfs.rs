@@ -5,6 +5,7 @@ use crate::entries::{IndexType, StringIndex, WrappedPath};
 use crate::errors::IndexResult;
 use crate::search::get_naivedatetime;
 use crate::utils::find_divergent_time;
+use crate::LinkTypes;
 
 /// Find all paths which exist between from & until timestamps with starting index
 /// This function is executed in BFS maner and will return all paths between from/until bounds
@@ -66,18 +67,18 @@ pub(crate) fn get_next_level_path_bfs(
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
     let mut out = vec![];
     for path in paths {
-        let mut lower_paths: Vec<Path> = path
+        let mut lower_paths: Vec<Path> = path.typed(LinkTypes::PathLink)?
             .children_paths()?
             .into_iter()
             .filter_map(|path| {
-                let path_wrapped = WrappedPath(path.clone());
+                let path_wrapped = WrappedPath(path.path.clone());
                 let chrono_path: IndexResult<NaiveDateTime> = path_wrapped.try_into();
                 if chrono_path.is_err() {
                     return Some(Err(chrono_path.err().unwrap()));
                 };
                 let chrono_path = chrono_path.unwrap();
                 if chrono_path >= from_time && chrono_path <= until_time {
-                    Some(Ok(path))
+                    Some(Ok(path.path))
                 } else {
                     None
                 }

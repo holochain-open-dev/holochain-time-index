@@ -3,7 +3,7 @@ use hdk::{hash_path::path::Component, prelude::*};
 
 use crate::entries::IndexType;
 use crate::errors::{IndexError, IndexResult};
-use crate::INDEX_DEPTH;
+use crate::{INDEX_DEPTH, LinkTypes};
 
 pub(crate) fn get_naivedatetime(
     from: &DateTime<Utc>,
@@ -117,15 +117,13 @@ pub(crate) fn find_newest_time_path<
     //debug!("Finding links on IndexType: {:#?}\n\n", time_index);
 
     //Pretty sure this filter and sort logic can be faster; first rough pass to get basic pieces in place
-    let mut links = path.children_paths()?;
+    let mut links = path.typed(LinkTypes::PathLink)?.children_paths()?;
     if links.len() == 0 {
-        return Err(IndexError::InternalError(
-            "Could not find any time paths for path",
-        ));
+        return Err(IndexError::Wasm(wasm_error!(WasmErrorInner::Host(String::from("Could not find any time paths for path")))));
     };
     links.sort_by(|a, b| {
-        let a_val: Vec<Component> = a.to_owned().into();
-        let b_val: Vec<Component> = b.to_owned().into();
+        let a_val: Vec<Component> = a.path.to_owned().into();
+        let b_val: Vec<Component> = b.path.to_owned().into();
         let a_u32: u32 = T::try_from(SerializedBytes::from(UnsafeBytes::from(
             a_val[1].as_ref().to_owned(),
         )))
@@ -139,5 +137,5 @@ pub(crate) fn find_newest_time_path<
         a_u32.partial_cmp(&b_u32).unwrap()
     });
     let latest = links.pop().unwrap();
-    Ok(latest)
+    Ok(latest.path)
 }

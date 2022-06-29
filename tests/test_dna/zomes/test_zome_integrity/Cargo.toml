@@ -1,0 +1,21 @@
+[package]
+name = "test_zome_integrity"
+version = "0.1.0"
+authors = ["jdeepee <joshuadparkin@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "test_zome_integrity"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+derive_more = "0"
+serde = "1"
+chrono = { version = "0.4", features=["serde"] }
+
+holochain_deterministic_integrity = "0.0"
+holo_hash = "0.0.29"
+hdk = "0.0"
+hc_time_index = { path = "../../../../../holochain-time-index" }

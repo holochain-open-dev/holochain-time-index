@@ -13,7 +13,7 @@ The main component that allows the mitigation of DHT hotspots are:
 
 ### Time Delimited Indexing
 
-This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkTag>)` function. This function indexes the submitted entry into a time b-tree. The b-tree looks something like the following:
+This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkTag>, index_link_type: ILT, path_link_type: PLT)` function. This function indexes the submitted entry into a time b-tree. The b-tree looks something like the following:
 
 ![B-tree](./media/b-tree-time-path.png)
 
@@ -44,6 +44,9 @@ This DNA exposes a few helper functions to make integrating with this time serie
 - `get_current_index()`: Gets links on current index period
 - `get_most_recent_indexes()`: Gets the most recent links
 - `index_entry()`: Indexes an entry into time tree
+
+Many of the above functions require `index_link_type` & `path_link_type` values to be provided. These should be defined `LinkTypes` in your happs integrity zome. The `index_link_type` is the link type that gets used when creating links between the time tree and the entry you wish to index. 
+The `path_link_type` is the link type which is used when creating links between Path entries (time tree entries). By leveraging different LinkTypes for different indexes it would be possible to create multiple index trees. 
 
 ### hApp Usage
 

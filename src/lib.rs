@@ -52,6 +52,9 @@
 //!
 //! Using the above methods, it's possible to build an application which places an emphasis on time ordered data (such as a group DM or news feed). Or you can use the time ordered nature of the data as a natural pagination for larger queries where you may wish to aggregate data over a given time period and then perform some further computations over it.
 //!
+//! ### Compatibility
+//!
+//! This crate has been built to work with HDK version 0.0.139 & holochain_deterministic_integrity 0.0.11
 //!
 //! ## Status
 //!

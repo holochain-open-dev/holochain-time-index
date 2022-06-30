@@ -13,7 +13,7 @@
 //!
 //! ### Time Delimited Indexing
 //!
-//! This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkTag>)` function. This function indexes the submitted entry into a time b-tree. The b-tree looks something like the following:
+//! This crate exposes an `index_entry(index: String, entry: T, link_tag: Into<LinkTag>, index_link_type: ILT, path_link_type: PLT)` function. This function indexes the submitted entry into a time b-tree. The b-tree looks something like the following:
 //!
 //! ![B-tree](https://github.com/holochain-open-dev/holochain-time-index/tree/main/media/b-tree-time-path.png)
 //!
@@ -44,11 +44,17 @@
 //! - `get_current_index()`: Gets links on current index period
 //! - `get_most_recent_indexes()`: Gets the most recent links
 //! - `index_entry()`: Indexes an entry into time tree
+//! 
+//! Many of the above functions require `index_link_type` & `path_link_type` values to be provided. These should be defined `LinkTypes` in your happs integrity zome. The `index_link_type` is the link type that gets used when creating links between the time tree and the entry you wish to index. 
+//! The `path_link_type` is the link type which is used when creating links between Path entries (time tree entries). By leveraging different LinkTypes for different indexes it would be possible to create multiple index trees. 
 //!
 //! ### hApp Usage
 //!
 //! Using the above methods, it's possible to build an application which places an emphasis on time ordered data (such as a group DM or news feed). Or you can use the time ordered nature of the data as a natural pagination for larger queries where you may wish to aggregate data over a given time period and then perform some further computations over it.
 //!
+//! ### Compatibility
+//!
+//! This crate has been built to work with HDK version 0.0.139 & holochain_deterministic_integrity 0.0.11
 //!
 //! ## Status
 //!
@@ -123,21 +129,18 @@ pub(crate) enum Order {
     Asc,
 }
 
-#[hdk_link_types]
-pub enum LinkTypes {
-    PathLink,
-    Index
-}
-
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
 /// TODO: would be cool to support DFS and BFS here
-pub fn get_indexes_for_time_span(
+pub fn get_indexes_for_time_span<PLT: Clone>(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     link_tag: Option<LinkTag>,
-) -> IndexResult<Vec<EntryChunkIndex>> {
+    index_link_type: impl LinkTypeFilterExt + Clone,
+    path_link_type: PLT
+) -> IndexResult<Vec<EntryChunkIndex>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     //Check that timeframe specified is greater than the INDEX_DEPTH.
     if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
         return Err(IndexError::RequestError(
@@ -146,18 +149,21 @@ pub fn get_indexes_for_time_span(
     };
 
     Ok(methods::get_indexes_for_time_span(
-        from, until, index, link_tag,
+        from, until, index, link_tag, index_link_type, path_link_type
     )?)
 }
 
 /// Get links for index that exist between two timestamps
-pub fn get_links_for_time_span(
+pub fn get_links_for_time_span<PLT: Clone>(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     link_tag: Option<LinkTag>,
     limit: Option<usize>,
-) -> IndexResult<Vec<Link>> {
+    index_link_type: impl LinkTypeFilterExt + Clone,
+    path_link_type: PLT
+) -> IndexResult<Vec<Link>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     // //Check that timeframe specified is greater than the INDEX_DEPTH.
     // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
     //     return Err(IndexError::RequestError(
@@ -166,13 +172,15 @@ pub fn get_links_for_time_span(
     // };
 
     Ok(methods::get_links_for_time_span(
-        index, from, until, link_tag, limit,
+        index, from, until, link_tag, limit, index_link_type, path_link_type
     )?)
 }
 
 /// Get links for index that exist between two timestamps and attempt to serialize link targets to T
 pub fn get_links_and_load_for_time_span<
-    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug,
+    ILT: LinkTypeFilterExt + Clone,
+    PLT: Clone
 >(
     index: String,
     from: DateTime<Utc>,
@@ -180,7 +188,10 @@ pub fn get_links_and_load_for_time_span<
     link_tag: Option<LinkTag>,
     strategy: SearchStrategy,
     limit: Option<usize>,
-) -> IndexResult<Vec<T>> {
+    index_link_type: ILT,
+    path_link_type: PLT
+) -> IndexResult<Vec<T>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     // //Check that timeframe specified is greater than the INDEX_DEPTH.
     // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
     //     return Err(IndexError::RequestError(
@@ -188,20 +199,22 @@ pub fn get_links_and_load_for_time_span<
     //     ));
     // };
 
-    Ok(methods::get_links_and_load_for_time_span::<T>(
-        from, until, index, link_tag, strategy, limit,
+    Ok(methods::get_links_and_load_for_time_span::<T, ILT, PLT>(
+        from, until, index, link_tag, strategy, limit, index_link_type, path_link_type
     )?)
 }
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
 /// at the current time index which will cover as much time as the current system time - MAX_CHUNK_INTERVAL
-pub fn get_current_index(
+pub fn get_current_index<PLT: Clone + LinkTypeFilterExt>(
     index: String,
     link_tag: Option<LinkTag>,
-) -> IndexResult<Option<EntryChunkIndex>> {
-    match methods::get_current_index(index)? {
+    path_link_type: PLT
+) -> IndexResult<Option<EntryChunkIndex>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
+    match methods::get_current_index(index, path_link_type.clone())? {
         Some(index) => {
-            let links = get_links(index.path_entry_hash()?, LinkTypes::PathLink, link_tag)?;
+            let links = get_links(index.path_entry_hash()?, path_link_type, link_tag)?;
             Ok(Some(EntryChunkIndex {
                 index: Index::try_from(index)?,
                 links: links,
@@ -209,29 +222,32 @@ pub fn get_current_index(
         }
         None => Ok(None),
     }
-}
+}   
 
 /// Index a given entry. Uses ['IndexableEntry::entry_time()'] to get time it should be indexed under.
 /// Will create link from time path to entry with link_tag passed into fn
-pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>>(
+pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>, ILT: Clone, PLT>(
     index: String,
     data: T,
     link_tag: LT,
-) -> IndexResult<()> {
-    let index = methods::create_for_timestamp(index, data.entry_time())?;
+    index_link_type: ILT,
+    path_link_type: PLT
+) -> IndexResult<()> 
+    where ScopedLinkType: TryFrom<ILT, Error = WasmError> + TryFrom<PLT, Error = WasmError> {
+    let index = methods::create_for_timestamp(index, data.entry_time(), path_link_type)?;
     //Create link from end of time path to entry that should be indexed
-    create_link(index.path_entry_hash()?, data.hash()?, LinkTypes::Index, link_tag)?;
+    create_link(index.path_entry_hash()?, data.hash()?, index_link_type.clone(), link_tag)?;
     //Create link from entry that should be indexed back to time tree so tree links can be found when starting from entry
-    create_link(data.hash()?, index.path_entry_hash()?, LinkTypes::Index, LinkTag::new("time_path"))?;
+    create_link(data.hash()?, index.path_entry_hash()?, index_link_type, LinkTag::new("time_path"))?;
     Ok(())
 }
 
 /// Removes a given indexed entry from the time tree
-pub fn remove_index(indexed_entry: EntryHash) -> IndexResult<()> {
+pub fn remove_index(indexed_entry: EntryHash, index_link_type: impl LinkTypeFilterExt + Clone) -> IndexResult<()> {
     let time_paths =
-        get_links(indexed_entry.clone(), LinkTypes::Index, Some(LinkTag::new("time_path")))?;
+        get_links(indexed_entry.clone(), index_link_type.clone(), Some(LinkTag::new("time_path")))?;
     for time_path in time_paths {
-        let path_links = get_links(time_path.target.clone(), LinkTypes::Index, None)?;
+        let path_links = get_links(time_path.target.clone(), index_link_type.clone(), None)?;
         let path_links: Vec<Link> = path_links
             .into_iter()
             .filter(|link| EntryHash::from(link.target.to_owned()) == indexed_entry)

@@ -5,15 +5,16 @@ use crate::entries::{IndexType, StringIndex, WrappedPath};
 use crate::errors::IndexResult;
 use crate::search::get_naivedatetime;
 use crate::utils::find_divergent_time;
-use crate::LinkTypes;
 
 /// Find all paths which exist between from & until timestamps with starting index
 /// This function is executed in BFS maner and will return all paths between from/until bounds
-pub(crate) fn find_paths_for_time_span(
+pub(crate) fn find_paths_for_time_span<PLT: Clone>(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     index: String,
-) -> IndexResult<Vec<Path>> {
+    path_link_type: PLT
+) -> IndexResult<Vec<Path>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     //Start path with index
     let mut paths = vec![Component::from(
         StringIndex(index).get_sb()?.bytes().to_owned(),
@@ -33,7 +34,7 @@ pub(crate) fn find_paths_for_time_span(
     // );
 
     for level in index_level {
-        paths = get_next_level_path_bfs(paths, &from, &until, &level)?;
+        paths = get_next_level_path_bfs(paths, &from, &until, &level, path_link_type.clone())?;
         // debug!(
         //     "Now have paths: {:#?} at level: {:#?}",
         //     paths
@@ -52,12 +53,14 @@ pub(crate) fn find_paths_for_time_span(
 /// found as children to supplied path. Will only return paths where path timeframe is inbetween from & until.
 /// This function is executed in bfs maner and is exhastive in that it will get all children for each path and
 /// will append each child path to the resulting vec
-pub(crate) fn get_next_level_path_bfs(
+pub(crate) fn get_next_level_path_bfs<PLT: Clone>(
     paths: Vec<Path>,
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,
     index_type: &IndexType,
-) -> IndexResult<Vec<Path>> {
+    path_link_type: PLT
+) -> IndexResult<Vec<Path>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     //Get the naivedatetime representation for from & until
     let (from_time, until_time) = match get_naivedatetime(from, until, index_type) {
         Some(tuple) => tuple,
@@ -67,7 +70,7 @@ pub(crate) fn get_next_level_path_bfs(
     //Iterate over paths and get children for each and only return paths where path is between from & until naivedatetime
     let mut out = vec![];
     for path in paths {
-        let mut lower_paths: Vec<Path> = path.typed(LinkTypes::PathLink)?
+        let mut lower_paths: Vec<Path> = path.typed(path_link_type.clone())?
             .children_paths()?
             .into_iter()
             .filter_map(|path| {
@@ -83,7 +86,7 @@ pub(crate) fn get_next_level_path_bfs(
                     None
                 }
             })
-            .collect::<IndexResult<Vec<Path>>>()?;
+            .collect::<IndexResult<Vec<Path>>>()?;    
         out.append(&mut lower_paths);
     }
     Ok(out)

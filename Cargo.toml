@@ -9,8 +9,6 @@ exclude = ["tests/*", "time-chunking.dna.workdir/*", "time-chunking.dna.gz", ".g
 crate-type = ["cdylib", "rlib"]
 name = "hc_time_index"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [profile.dev]
 opt-level = "z"
 
@@ -19,7 +17,7 @@ opt-level = "z"
 
 [dependencies]
 hdk = "0.0"
-holochain_deterministic_integrity = "0.0"
+holochain_deterministic_integrity = "0.0.11"
 
 #derive_more = "0"
 serde = "1"

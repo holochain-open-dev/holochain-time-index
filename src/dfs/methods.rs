@@ -16,7 +16,7 @@ use crate::{IndexableEntry, Order, DEFAULT_INDEX_DEPTH, INDEX_DEPTH};
 pub(crate) fn make_dfs_search<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + Debug,
     ILT: LinkTypeFilterExt + Clone,
-    PLT: Into<ScopedLinkType> + Clone
+    PLT: Clone
 >(
     index: String,
     from: &DateTime<Utc>,
@@ -26,7 +26,8 @@ pub(crate) fn make_dfs_search<
     link_tag: Option<LinkTag>,
     index_link_type: ILT,
     path_link_type: PLT
-) -> IndexResult<Vec<T>> {
+) -> IndexResult<Vec<T>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     let mut out: Vec<T> = vec![];
     let mut search_state = SearchState::new();
     //Start path with index
@@ -253,14 +254,15 @@ pub(crate) fn make_dfs_search<
 /// found as children to supplied path. Will only return paths where path timeframe is inbetween from & until. This function
 /// is executed in a dfs maner and will choose one path (dependant on order; highest (Order::Desc) or lowest value (Order::Asc))
 /// And then get the next set of paths from the choosen path
-pub(crate) fn get_next_level_path_dfs(
+pub(crate) fn get_next_level_path_dfs<PLT: Clone>(
     mut paths: Vec<Path>,
     from: &DateTime<Utc>,
     until: &DateTime<Utc>,
     index_type: &IndexType,
     order: &Order,
-    path_link_type: impl Into<ScopedLinkType>
-) -> IndexResult<Vec<Path>> {
+    path_link_type: PLT
+) -> IndexResult<Vec<Path>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     //Get the naivedatetime representation for from & until
     let (from_time, until_time) = match get_naivedatetime(from, until, index_type) {
         Some(tuple) => tuple,

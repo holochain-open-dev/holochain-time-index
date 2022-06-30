@@ -126,14 +126,15 @@ pub(crate) enum Order {
 /// Gets all links with optional tag link_tag since last_seen time with option to limit number of results by limit
 /// Note: if last_seen is a long time ago in a popular DHT then its likely this function will take a very long time to run
 /// TODO: would be cool to support DFS and BFS here
-pub fn get_indexes_for_time_span(
+pub fn get_indexes_for_time_span<PLT: Clone>(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     link_tag: Option<LinkTag>,
     index_link_type: impl LinkTypeFilterExt + Clone,
-    path_link_type: impl Into<ScopedLinkType> + Clone
-) -> IndexResult<Vec<EntryChunkIndex>> {
+    path_link_type: PLT
+) -> IndexResult<Vec<EntryChunkIndex>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     //Check that timeframe specified is greater than the INDEX_DEPTH.
     if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
         return Err(IndexError::RequestError(
@@ -147,15 +148,16 @@ pub fn get_indexes_for_time_span(
 }
 
 /// Get links for index that exist between two timestamps
-pub fn get_links_for_time_span(
+pub fn get_links_for_time_span<PLT: Clone>(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     link_tag: Option<LinkTag>,
     limit: Option<usize>,
     index_link_type: impl LinkTypeFilterExt + Clone,
-    path_link_type: impl Into<ScopedLinkType> + Clone
-) -> IndexResult<Vec<Link>> {
+    path_link_type: PLT
+) -> IndexResult<Vec<Link>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     // //Check that timeframe specified is greater than the INDEX_DEPTH.
     // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
     //     return Err(IndexError::RequestError(
@@ -172,7 +174,7 @@ pub fn get_links_for_time_span(
 pub fn get_links_and_load_for_time_span<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug,
     ILT: LinkTypeFilterExt + Clone,
-    PLT: Into<ScopedLinkType> + Clone
+    PLT: Clone
 >(
     index: String,
     from: DateTime<Utc>,
@@ -182,7 +184,8 @@ pub fn get_links_and_load_for_time_span<
     limit: Option<usize>,
     index_link_type: ILT,
     path_link_type: PLT
-) -> IndexResult<Vec<T>> {
+) -> IndexResult<Vec<T>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     // //Check that timeframe specified is greater than the INDEX_DEPTH.
     // if until.timestamp_millis() - from.timestamp_millis() < MAX_CHUNK_INTERVAL.as_millis() as i64 {
     //     return Err(IndexError::RequestError(
@@ -197,11 +200,12 @@ pub fn get_links_and_load_for_time_span<
 
 /// Uses sys_time to get links on current time index. Note: this is not guaranteed to return results. It will only look
 /// at the current time index which will cover as much time as the current system time - MAX_CHUNK_INTERVAL
-pub fn get_current_index(
+pub fn get_current_index<PLT: Clone + LinkTypeFilterExt>(
     index: String,
     link_tag: Option<LinkTag>,
-    path_link_type: impl Into<ScopedLinkType> + holochain_deterministic_integrity::prelude::LinkTypeFilterExt + Clone
-) -> IndexResult<Option<EntryChunkIndex>> {
+    path_link_type: PLT
+) -> IndexResult<Option<EntryChunkIndex>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     match methods::get_current_index(index, path_link_type.clone())? {
         Some(index) => {
             let links = get_links(index.path_entry_hash()?, path_link_type, link_tag)?;
@@ -216,14 +220,14 @@ pub fn get_current_index(
 
 /// Index a given entry. Uses ['IndexableEntry::entry_time()'] to get time it should be indexed under.
 /// Will create link from time path to entry with link_tag passed into fn
-pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>, ILT: Into<ScopedLinkType> + Clone>(
+pub fn index_entry<T: IndexableEntry, LT: Into<LinkTag>, ILT: Clone, PLT>(
     index: String,
     data: T,
     link_tag: LT,
     index_link_type: ILT,
-    path_link_type: impl Into<ScopedLinkType>
+    path_link_type: PLT
 ) -> IndexResult<()> 
-    where ScopedZomeType<LinkType>: From<ILT>{
+    where ScopedLinkType: TryFrom<ILT, Error = WasmError> + TryFrom<PLT, Error = WasmError> {
     let index = methods::create_for_timestamp(index, data.entry_time(), path_link_type)?;
     //Create link from end of time path to entry that should be indexed
     create_link(index.path_entry_hash()?, data.hash()?, index_link_type.clone(), link_tag)?;

@@ -14,7 +14,7 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
 #[hdk_extern]
 pub fn index_entry(entry: TestEntry) -> ExternResult<()> {
     create_entry(&EntryTypes::TestEntry(entry.clone()))?;
-    hc_time_index::index_entry(String::from("test_index"), entry, LinkTag::new("test"), LinkTypes::Index.try_into()?, LinkTypes::Path.try_into()?)
+    hc_time_index::index_entry(String::from("test_index"), entry, LinkTag::new("test"), LinkTypes::Index, LinkTypes::Path)
         .map_err(|error| utils::err(&format!("{}", error)))?;
     Ok(())
 }
@@ -37,7 +37,7 @@ pub fn get_indexes_for_time_span(
         input.from,
         input.until,
         input.link_tag,
-        LinkTypes::Index.into(),
+        LinkTypes::Index,
         LinkTypes::Path
     )
     .map_err(|error| utils::err(&format!("{}", error)))

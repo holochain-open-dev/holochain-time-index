@@ -18,7 +18,8 @@ use crate::{
 
 impl Index {
     /// Create a new time index
-    pub(crate) fn new(&self, index: String, path_link_type: impl Into<ScopedLinkType>) -> IndexResult<Path> {
+    pub(crate) fn new<L>(&self, index: String, path_link_type: L) -> IndexResult<Path> 
+        where ScopedLinkType: TryFrom<L, Error = WasmError> {
         //These validations are to help zome callers; but should also be present in validation rules
         let now_since_epoch = sys_time()?
             .checked_difference_signed(&Timestamp::from_micros(0))
@@ -52,7 +53,8 @@ impl Index {
 }
 
 /// Get current index using sys_time as source for time
-pub fn get_current_index(index: String, path_link_type: impl Into<ScopedLinkType>) -> IndexResult<Option<Path>> {
+pub fn get_current_index<PLT>(index: String, path_link_type: PLT) -> IndexResult<Option<Path>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     //Running with the asumption here that sys_time is always UTC
     let now = sys_time()?.as_seconds_and_nanos();
     let now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now.0, now.1), Utc);
@@ -129,14 +131,15 @@ pub fn get_latest_index<PLT: Into<ScopedLinkType> + Clone>(index: String, path_l
 }
 
 /// Get all chunks that exist for some time period between from -> until
-pub(crate) fn get_indexes_for_time_span(
+pub(crate) fn get_indexes_for_time_span<PLT: Clone>(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     index: String,
     link_tag: Option<LinkTag>,
     index_link_type: impl LinkTypeFilterExt + Clone,
-    path_link_type: impl Into<ScopedLinkType> + Clone
-) -> IndexResult<Vec<EntryChunkIndex>> {
+    path_link_type: PLT
+) -> IndexResult<Vec<EntryChunkIndex>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     let paths = find_paths_for_time_span(from, until, index, path_link_type.clone())?;
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<EntryChunkIndex> = vec![];
@@ -171,15 +174,16 @@ pub(crate) fn get_indexes_for_time_span(
 }
 
 /// Get all links that exist for some time period between from -> until
-pub(crate) fn get_links_for_time_span(
+pub(crate) fn get_links_for_time_span<PLT: Clone>(
     index: String,
     from: DateTime<Utc>,
     until: DateTime<Utc>,
     link_tag: Option<LinkTag>,
     limit: Option<usize>,
     index_link_type: impl LinkTypeFilterExt + Clone,
-    path_link_type: impl Into<ScopedLinkType> + Clone
-) -> IndexResult<Vec<Link>> {
+    path_link_type: PLT
+) -> IndexResult<Vec<Link>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     let order = if from > until {
         Order::Desc
     } else {
@@ -231,7 +235,7 @@ pub(crate) fn get_links_for_time_span(
 pub(crate) fn get_links_and_load_for_time_span<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug,
     ILT: LinkTypeFilterExt + Clone,
-    PLT: Into<ScopedLinkType> + Clone
+    PLT: Clone
 >(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
@@ -241,7 +245,8 @@ pub(crate) fn get_links_and_load_for_time_span<
     limit: Option<usize>,
     index_link_type: ILT,
     path_link_type: PLT
-) -> IndexResult<Vec<T>> {
+) -> IndexResult<Vec<T>> 
+    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
     let order = if from > until {
         Order::Desc
     } else {
@@ -311,7 +316,8 @@ pub(crate) fn get_links_and_load_for_time_span<
 }
 
 /// Takes a timestamp and creates an index path
-pub(crate) fn create_for_timestamp(index: String, time: DateTime<Utc>, path_link_type: impl Into<ScopedLinkType>) -> IndexResult<Path> {
+pub(crate) fn create_for_timestamp<L>(index: String, time: DateTime<Utc>, path_link_type: L) -> IndexResult<Path> 
+    where ScopedLinkType: TryFrom<L, Error = WasmError> {
     let time_index = get_index_for_timestamp(time);
     let path = time_index.new(index, path_link_type)?;
     Ok(path)

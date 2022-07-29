@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use holochain_deterministic_integrity::prelude::*;
+use hdi::prelude::*;
 
 use hc_time_index::{IndexableEntry};
 

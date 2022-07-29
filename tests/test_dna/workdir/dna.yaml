@@ -2,7 +2,7 @@
 manifest_version: "1"
 name: "time-index-test"
 integrity:
-  uid: 00000000-0000-0000-0000-000000000000
+  network_seed: 00000000-0000-0000-0000-000000000000
   properties: {
     "enforce_spam_limit": 20,
     "max_chunk_interval": 1000,

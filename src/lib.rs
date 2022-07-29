@@ -79,8 +79,8 @@ extern crate lazy_static;
 
 use chrono::{DateTime, Utc};
 use std::time::Duration;
-use holochain_deterministic_integrity::prelude::*;
 
+use hdi::prelude::*;
 use hdk::prelude::*;
 
 mod bfs;

@@ -17,12 +17,12 @@ opt-level = "z"
 opt-level = "z"
 
 [dependencies]
-hdk = "0.0.143"
+hdk = "0.0.147"
 
 #derive_more = "0"
 serde = "*"
 lazy_static = "*"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4.22", default-features = false, features = ["clock", "std", "oldtime", "serde"] }
 mut_static = "*"
 hc_time_index = { path = "../../../../" }
 test_zome_integrity = { path = "../test_zome_integrity" }

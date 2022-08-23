@@ -13,9 +13,9 @@ name = "test_zome_integrity"
 [dependencies]
 derive_more = "0"
 serde = "1"
-chrono = { version = "0.4", features=["serde"] }
+chrono = { version = "0.4.22", default-features = false, features = ["clock", "std", "oldtime", "serde"] }
 
-hdi = "0.0.15"
+hdi = "0.0.19"
 holo_hash = "0.0.31"
-hdk = "0.0"
+hdk = "0.0.147"
 hc_time_index = { path = "../../../../../holochain-time-index" }

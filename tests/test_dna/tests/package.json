@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@holochain/client": "0.6.0",
+    "@holochain/client": "0.7.0",
     "@holochain/tryorama": "0.6.2",
     "@types/lodash": "^4.14.158",
     "@types/node": "^14.0.14",

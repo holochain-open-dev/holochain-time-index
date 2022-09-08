@@ -1,8 +1,9 @@
 use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use hdk::{hash_path::path::Component, prelude::*};
+use hdi::prelude::Timestamp;
 
 use crate::entries::{Index, IndexType, StringIndex, TimeIndex};
-use crate::errors::{IndexError, IndexResult};
+use crate::errors::{IndexResult};
 use crate::{INDEX_DEPTH, MAX_CHUNK_INTERVAL};
 
 /// Find the overlapping path between two times and return vec of queries at given IndexTypes which still need to be performed
@@ -103,9 +104,7 @@ pub(crate) fn find_divergent_time(
     } else {
         return Ok((path, vec![IndexType::Second]));
     };
-    Err(IndexError::RequestError(
-        "From & until timestamps are the same",
-    ))
+    return Ok((path, vec![]))
 }
 
 /// Create a timestamp path tree from a given duration and index
@@ -186,6 +185,10 @@ pub(crate) fn get_index_for_timestamp(time: DateTime<Utc>) -> Index {
         from: chunk_start,
         until: chunk_end,
     }
+}
+
+pub fn get_now() -> IndexResult<Timestamp> {
+    Ok(sys_time()?)
 }
 
 mod util_tests {

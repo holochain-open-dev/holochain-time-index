@@ -16,13 +16,13 @@ opt-level = "z"
 opt-level = "z"
 
 [dependencies]
-hdk = "0.0.147"
-hdi = "0.0.19"
+hdi = "0.0.15"
+hdk = "0.0.143"
 
 #derive_more = "0"
 serde = "1"
 lazy_static = "*"
-chrono = { version = "0.4.22", default-features = false, features = ["clock", "std", "oldtime", "serde"] }
+chrono = { version = "=0.4.19", features=["serde"] }
 mut_static = "*"
 permutation = "0.2.5"
 thiserror = "1.0.24"

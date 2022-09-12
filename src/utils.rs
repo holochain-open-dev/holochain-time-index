@@ -1,6 +1,6 @@
 use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 use hdk::{hash_path::path::Component, prelude::*};
-use hdi::prelude::Timestamp;
+//use hdi::prelude::Timestamp;
 
 use crate::entries::{Index, IndexType, StringIndex, TimeIndex};
 use crate::errors::{IndexResult};
@@ -187,9 +187,9 @@ pub(crate) fn get_index_for_timestamp(time: DateTime<Utc>) -> Index {
     }
 }
 
-pub fn get_now() -> IndexResult<Timestamp> {
-    Ok(sys_time()?)
-}
+// pub fn get_now() -> IndexResult<Timestamp> {
+//     Ok(sys_time()?)
+// }
 
 mod util_tests {
     #[test]

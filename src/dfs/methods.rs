@@ -171,13 +171,13 @@ pub(crate) fn make_dfs_search<
                     .collect::<IndexResult<Vec<T>>>()?;
                 out.append(&mut links);
                 if break_at_limit {
-                    if out.len() > limit.unwrap() {
+                    if out.len() >= limit.unwrap() {
                         break;
                     }
                 }
             }
             if break_at_limit {
-                if out.len() > limit.unwrap() {
+                if out.len() >= limit.unwrap() {
                     break;
                 }
             }

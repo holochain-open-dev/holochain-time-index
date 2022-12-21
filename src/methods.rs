@@ -9,7 +9,7 @@ use crate::search::find_newest_time_path;
 use crate::utils::{add_time_index_to_path, get_index_for_timestamp, get_time_path};
 use crate::{
     entries::{Index, IndexType, StringIndex, TimeIndex},
-    EntryChunkIndex, IndexableEntry, SearchStrategy, MAX_CHUNK_INTERVAL
+    EntryChunkIndex, IndexableEntry, SearchStrategy, MAX_CHUNK_INTERVAL,
 };
 use crate::{
     errors::{IndexError, IndexResult},
@@ -18,8 +18,10 @@ use crate::{
 
 impl Index {
     /// Create a new time index
-    pub(crate) fn new<L>(&self, index: String, path_link_type: L) -> IndexResult<Path> 
-        where ScopedLinkType: TryFrom<L, Error = WasmError> {
+    pub(crate) fn new<L>(&self, index: String, path_link_type: L) -> IndexResult<Path>
+    where
+        ScopedLinkType: TryFrom<L, Error = WasmError>,
+    {
         //These validations are to help zome callers; but should also be present in validation rules
         let now_since_epoch = sys_time()?
             .checked_difference_signed(&Timestamp::from_micros(0))
@@ -53,8 +55,10 @@ impl Index {
 }
 
 /// Get current index using sys_time as source for time
-pub fn get_current_index<PLT>(index: String, path_link_type: PLT) -> IndexResult<Option<Path>> 
-    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
+pub fn get_current_index<PLT>(index: String, path_link_type: PLT) -> IndexResult<Option<Path>>
+where
+    ScopedLinkType: TryFrom<PLT, Error = WasmError>,
+{
     //Running with the asumption here that sys_time is always UTC
     let now = sys_time()?.as_seconds_and_nanos();
     let now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now.0, now.1), Utc);
@@ -93,20 +97,49 @@ pub fn get_current_index<PLT>(index: String, path_link_type: PLT) -> IndexResult
 }
 
 /// Traverses time tree following latest time links until it finds the latest index
-pub fn get_latest_index<PLT: Into<ScopedLinkType> + Clone>(index: String, path_link_type: PLT) -> IndexResult<Option<Path>> {
+pub fn get_latest_index<PLT: Into<ScopedLinkType> + Clone>(
+    index: String,
+    path_link_type: PLT,
+) -> IndexResult<Option<Path>> {
     // This should also be smarter. We could at the least derive the index & current year and check that for paths before moving
     // to the previous year. This would help remove 2 get_link() calls from the DHT on source Index path & Index + Year path
     let time_path = Path::from(vec![Component::from(
         StringIndex(index).get_sb()?.bytes().to_owned(),
     )]);
-    let time_path = find_newest_time_path::<TimeIndex, PLT>(time_path, IndexType::Year, path_link_type.clone())?;
-    let time_path = find_newest_time_path::<TimeIndex, PLT>(time_path, IndexType::Month, path_link_type.clone())?;
-    let time_path = find_newest_time_path::<TimeIndex, PLT>(time_path, IndexType::Day, path_link_type.clone())?;
-    let time_path = find_newest_time_path::<TimeIndex, PLT>(time_path, IndexType::Hour, path_link_type.clone())?;
-    let time_path = find_newest_time_path::<TimeIndex, PLT>(time_path, IndexType::Minute, path_link_type.clone())?;
-    let time_path = find_newest_time_path::<TimeIndex, PLT>(time_path, IndexType::Second, path_link_type.clone())?;
+    let time_path = find_newest_time_path::<TimeIndex, PLT>(
+        time_path,
+        IndexType::Year,
+        path_link_type.clone(),
+    )?;
+    let time_path = find_newest_time_path::<TimeIndex, PLT>(
+        time_path,
+        IndexType::Month,
+        path_link_type.clone(),
+    )?;
+    let time_path =
+        find_newest_time_path::<TimeIndex, PLT>(time_path, IndexType::Day, path_link_type.clone())?;
+    let time_path = find_newest_time_path::<TimeIndex, PLT>(
+        time_path,
+        IndexType::Hour,
+        path_link_type.clone(),
+    )?;
+    let time_path = find_newest_time_path::<TimeIndex, PLT>(
+        time_path,
+        IndexType::Minute,
+        path_link_type.clone(),
+    )?;
+    let time_path = find_newest_time_path::<TimeIndex, PLT>(
+        time_path,
+        IndexType::Second,
+        path_link_type.clone(),
+    )?;
 
-    let indexes = time_path.typed(path_link_type)?.children_paths()?.into_iter().map(|val| val.path).collect::<Vec<_>>();
+    let indexes = time_path
+        .typed(path_link_type)?
+        .children_paths()?
+        .into_iter()
+        .map(|val| val.path)
+        .collect::<Vec<_>>();
     let ser_path = indexes
         .clone()
         .into_iter()
@@ -137,9 +170,11 @@ pub(crate) fn get_indexes_for_time_span<PLT: Clone>(
     index: String,
     link_tag: Option<LinkTag>,
     index_link_type: impl LinkTypeFilterExt + Clone,
-    path_link_type: PLT
-) -> IndexResult<Vec<EntryChunkIndex>> 
-    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
+    path_link_type: PLT,
+) -> IndexResult<Vec<EntryChunkIndex>>
+where
+    ScopedLinkType: TryFrom<PLT, Error = WasmError>,
+{
     let paths = find_paths_for_time_span(from, until, index, path_link_type.clone())?;
     //debug!("Got paths after search: {:#?}", paths);
     let mut out: Vec<EntryChunkIndex> = vec![];
@@ -153,7 +188,11 @@ pub(crate) fn get_indexes_for_time_span<PLT: Clone>(
                 let index = Index::try_from(path.path.clone())?;
                 let entry_chunk_index = EntryChunkIndex {
                     index: index,
-                    links: get_links(path.path_entry_hash()?, index_link_type.clone(), link_tag.clone())?,
+                    links: get_links(
+                        path.path_entry_hash()?,
+                        index_link_type.clone(),
+                        link_tag.clone(),
+                    )?,
                 };
                 Ok(entry_chunk_index)
             })
@@ -181,9 +220,11 @@ pub(crate) fn get_links_for_time_span<PLT: Clone>(
     link_tag: Option<LinkTag>,
     limit: Option<usize>,
     index_link_type: impl LinkTypeFilterExt + Clone,
-    path_link_type: PLT
-) -> IndexResult<Vec<Link>> 
-    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
+    path_link_type: PLT,
+) -> IndexResult<Vec<Link>>
+where
+    ScopedLinkType: TryFrom<PLT, Error = WasmError>,
+{
     let order = if from > until {
         Order::Desc
     } else {
@@ -191,12 +232,8 @@ pub(crate) fn get_links_for_time_span<PLT: Clone>(
     };
 
     let paths = match order {
-        Order::Desc => {
-            find_paths_for_time_span(until, from, index, path_link_type.clone())?
-        },
-        Order::Asc => {
-            find_paths_for_time_span(from, until, index, path_link_type.clone())?
-        }
+        Order::Desc => find_paths_for_time_span(until, from, index, path_link_type.clone())?,
+        Order::Asc => find_paths_for_time_span(from, until, index, path_link_type.clone())?,
     };
 
     if limit.is_some() {
@@ -210,7 +247,11 @@ pub(crate) fn get_links_for_time_span<PLT: Clone>(
             .clone()
             .into_iter()
             .map(|path| {
-                let links = get_links(path.path_entry_hash()?, index_link_type.clone(), link_tag.clone())?;
+                let links = get_links(
+                    path.path_entry_hash()?,
+                    index_link_type.clone(),
+                    link_tag.clone(),
+                )?;
                 Ok(links)
             })
             .collect::<IndexResult<Vec<Vec<Link>>>>()?
@@ -235,7 +276,7 @@ pub(crate) fn get_links_for_time_span<PLT: Clone>(
 pub(crate) fn get_links_and_load_for_time_span<
     T: TryFrom<SerializedBytes, Error = SerializedBytesError> + IndexableEntry + std::fmt::Debug,
     ILT: LinkTypeFilterExt + Clone,
-    PLT: Clone
+    PLT: Clone,
 >(
     from: DateTime<Utc>,
     until: DateTime<Utc>,
@@ -244,9 +285,11 @@ pub(crate) fn get_links_and_load_for_time_span<
     strategy: SearchStrategy,
     limit: Option<usize>,
     index_link_type: ILT,
-    path_link_type: PLT
-) -> IndexResult<Vec<T>> 
-    where ScopedLinkType: TryFrom<PLT, Error = WasmError> {
+    path_link_type: PLT,
+) -> IndexResult<Vec<T>>
+where
+    ScopedLinkType: TryFrom<PLT, Error = WasmError>,
+{
     let order = if from > until {
         Order::Desc
     } else {
@@ -258,10 +301,8 @@ pub(crate) fn get_links_and_load_for_time_span<
             let paths = match order {
                 Order::Desc => {
                     find_paths_for_time_span(until, from, index, path_link_type.clone())?
-                },
-                Order::Asc => {
-                    find_paths_for_time_span(from, until, index, path_link_type.clone())?
                 }
+                Order::Asc => find_paths_for_time_span(from, until, index, path_link_type.clone())?,
             };
             let mut results: Vec<T> = vec![];
 
@@ -271,17 +312,30 @@ pub(crate) fn get_links_and_load_for_time_span<
                     .clone()
                     .into_iter()
                     .map(|path_child| {
-                        let links = get_links(path_child.path_entry_hash()?, index_link_type.clone(), link_tag.clone())?;
+                        let links = get_links(
+                            path_child.path_entry_hash()?,
+                            index_link_type.clone(),
+                            link_tag.clone(),
+                        )?;
                         Ok(links)
                     })
                     .collect::<IndexResult<Vec<Vec<Link>>>>()?
                     .into_iter()
                     .flatten()
-                    .map(|link| match get(link.target, GetOptions::latest())? {
-                        Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
-                            IndexError::InternalError("Expected element to contain app entry data"),
-                        )?)),
-                        None => Ok(None),
+                    .map(|link| {
+                        match get(
+                            link.target
+                                .into_entry_hash()
+                                .expect("Could not get entry hash for link target"),
+                            GetOptions::latest(),
+                        )? {
+                            Some(chunk) => Ok(Some(chunk.entry().to_app_option::<T>()?.ok_or(
+                                IndexError::InternalError(
+                                    "Expected element to contain app entry data",
+                                ),
+                            )?)),
+                            None => Ok(None),
+                        }
                     })
                     .filter_map(|val| {
                         if val.is_ok() {
@@ -309,15 +363,28 @@ pub(crate) fn get_links_and_load_for_time_span<
 
             results
         }
-        SearchStrategy::Dfs => {
-            make_dfs_search::<T, ILT, PLT>(index, &from, &until, &order, limit, link_tag, index_link_type, path_link_type)?
-        }
+        SearchStrategy::Dfs => make_dfs_search::<T, ILT, PLT>(
+            index,
+            &from,
+            &until,
+            &order,
+            limit,
+            link_tag,
+            index_link_type,
+            path_link_type,
+        )?,
     })
 }
 
 /// Takes a timestamp and creates an index path
-pub(crate) fn create_for_timestamp<L>(index: String, time: DateTime<Utc>, path_link_type: L) -> IndexResult<Path> 
-    where ScopedLinkType: TryFrom<L, Error = WasmError> {
+pub(crate) fn create_for_timestamp<L>(
+    index: String,
+    time: DateTime<Utc>,
+    path_link_type: L,
+) -> IndexResult<Path>
+where
+    ScopedLinkType: TryFrom<L, Error = WasmError>,
+{
     let time_index = get_index_for_timestamp(time);
     let path = time_index.new(index, path_link_type)?;
     Ok(path)

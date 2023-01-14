@@ -1,6 +1,6 @@
 [package]
 name = "hc_time_index"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["jdeepee <joshuadparkin@gmail.com>"]
 edition = "2018"
 exclude = ["tests/*", "time-chunking.dna.workdir/*", "time-chunking.dna.gz", ".gitignore"]

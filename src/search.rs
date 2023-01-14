@@ -12,30 +12,30 @@ pub(crate) fn get_naivedatetime(
 ) -> Option<(NaiveDateTime, NaiveDateTime)> {
     match index_type {
         IndexType::Year => Some((
-            NaiveDate::from_ymd(from.year(), 1, 1).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), 1, 1).and_hms(1, 1, 1),
+            NaiveDate::from_ymd_opt(from.year(), 1, 1).unwrap().and_hms_opt(1, 1, 1).unwrap(),
+            NaiveDate::from_ymd_opt(until.year(), 1, 1).unwrap().and_hms_opt(1, 1, 1).unwrap(),
         )),
         IndexType::Month => Some((
-            NaiveDate::from_ymd(from.year(), from.month(), 1).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), until.month(), 1).and_hms(1, 1, 1),
+            NaiveDate::from_ymd_opt(from.year(), from.month(), 1).unwrap().and_hms_opt(1, 1, 1).unwrap(),
+            NaiveDate::from_ymd_opt(until.year(), until.month(), 1).unwrap().and_hms_opt(1, 1, 1).unwrap(),
         )),
         IndexType::Day => Some((
-            NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(1, 1, 1),
-            NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(1, 1, 1),
+            NaiveDate::from_ymd_opt(from.year(), from.month(), from.day()).unwrap().and_hms_opt(1, 1, 1).unwrap(),
+            NaiveDate::from_ymd_opt(until.year(), until.month(), until.day()).unwrap().and_hms_opt(1, 1, 1).unwrap(),
         )),
         IndexType::Hour => {
             if INDEX_DEPTH.contains(&index_type) {
                 Some((
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                    NaiveDate::from_ymd_opt(from.year(), from.month(), from.day()).unwrap().and_hms_opt(
                         from.hour(),
                         1,
                         1,
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                    ).unwrap(),
+                    NaiveDate::from_ymd_opt(until.year(), until.month(), until.day()).unwrap().and_hms_opt(
                         until.hour(),
                         1,
                         1,
-                    ),
+                    ).unwrap(),
                 ))
             } else {
                 None
@@ -44,16 +44,16 @@ pub(crate) fn get_naivedatetime(
         IndexType::Minute => {
             if INDEX_DEPTH.contains(&index_type) {
                 Some((
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                    NaiveDate::from_ymd_opt(from.year(), from.month(), from.day()).unwrap().and_hms_opt(
                         from.hour(),
                         from.minute(),
                         1,
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                    ).unwrap(),
+                    NaiveDate::from_ymd_opt(until.year(), until.month(), until.day()).unwrap().and_hms_opt(
                         until.hour(),
                         until.minute(),
                         1,
-                    ),
+                    ).unwrap(),
                 ))
             } else {
                 None
@@ -62,16 +62,16 @@ pub(crate) fn get_naivedatetime(
         IndexType::Second => {
             if INDEX_DEPTH.contains(&index_type) {
                 Some((
-                    NaiveDate::from_ymd(from.year(), from.month(), from.day()).and_hms(
+                    NaiveDate::from_ymd_opt(from.year(), from.month(), from.day()).unwrap().and_hms_opt(
                         from.hour(),
                         from.minute(),
                         from.second(),
-                    ),
-                    NaiveDate::from_ymd(until.year(), until.month(), until.day()).and_hms(
+                    ).unwrap(),
+                    NaiveDate::from_ymd_opt(until.year(), until.month(), until.day()).unwrap().and_hms_opt(
                         until.hour(),
                         until.minute(),
                         until.second(),
-                    ),
+                    ).unwrap(),
                 ))
             } else {
                 None

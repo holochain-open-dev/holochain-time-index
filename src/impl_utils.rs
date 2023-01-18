@@ -28,11 +28,11 @@ impl std::fmt::Debug for Index {
         debug_struct.field("diff", &self.until.sub(self.from));
         debug_struct.field(
             "timestamp",
-            &NaiveDateTime::from_timestamp(self.from.as_secs() as i64, self.from.subsec_nanos()),
+            &NaiveDateTime::from_timestamp_opt(self.from.as_secs() as i64, self.from.subsec_nanos()).unwrap(),
         );
         debug_struct.field(
             "timestamp_until",
-            &NaiveDateTime::from_timestamp(self.until.as_secs() as i64, self.until.subsec_nanos()),
+            &NaiveDateTime::from_timestamp_opt(self.until.as_secs() as i64, self.until.subsec_nanos()).unwrap(),
         );
         debug_struct.finish()
     }

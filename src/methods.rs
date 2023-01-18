@@ -61,7 +61,7 @@ where
 {
     //Running with the asumption here that sys_time is always UTC
     let now = sys_time()?.as_seconds_and_nanos();
-    let now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now.0, now.1), Utc);
+    let now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(now.0, now.1).unwrap(), Utc);
 
     //Create current time path
     let mut time_path = vec![Component::try_from(

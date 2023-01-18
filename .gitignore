@@ -5,3 +5,4 @@ Cargo.lock
 .cargo
 node_modules
 .vscode
+.hc*

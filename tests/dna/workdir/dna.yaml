@@ -10,10 +10,10 @@ integrity:
   origin_time: 2022-02-11T23:05:19.470323Z
   zomes:
     - name: test_zome_integrity
-      bundled: ../target/wasm32-unknown-unknown/release/test_zome_integrity.wasm
+      bundled: ../../target/wasm32-unknown-unknown/release/test_zome_integrity.wasm
 coordinator:
   zomes:
     - name: test_zome
-      bundled: ../target/wasm32-unknown-unknown/release/test_zome.wasm
+      bundled: ../../target/wasm32-unknown-unknown/release/test_zome.wasm
       dependencies:
         - name: test_zome_integrity

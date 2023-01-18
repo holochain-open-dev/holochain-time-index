@@ -1,21 +1,28 @@
 [package]
-name = "test_zome_integrity"
+name = "test_zome"
 version = "0.1.0"
 authors = ["jdeepee <joshuadparkin@gmail.com>"]
 edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-name = "test_zome_integrity"
+name = "test_zome"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-derive_more = "0"
-serde = "1"
-chrono = { version = "0.4.22", default-features = false, features = ["clock", "std", "oldtime", "serde"] }
+[profile.dev]
+opt-level = "z"
 
-hdi = "0.1.10"
-holo_hash = "0.0.35"
-hdk = "0.0.163"
-hc_time_index = { path = "../../../../../holochain-time-index" }
+[profile.release]
+opt-level = "z"
+
+[dependencies]
+hdk = "0.1.0-beta-rc.2"
+
+#derive_more = "0"
+serde = "*"
+lazy_static = "*"
+chrono = { version = "0.4.22", default-features = false, features = ["clock", "std", "oldtime", "serde"] }
+mut_static = "*"
+hc_time_index = { path = "../../../../" }
+test_zome_integrity = { path = "../test_zome_integrity" }

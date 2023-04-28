@@ -17,7 +17,7 @@ opt-level = "z"
 opt-level = "z"
 
 [dependencies]
-hdk = "0.1.1"
+hdk = "0.1.2"
 
 #derive_more = "0"
 serde = "*"

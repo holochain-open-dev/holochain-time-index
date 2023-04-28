@@ -1,8 +1,8 @@
-/target
+target
 Cargo.lock
-/tests/test_dna/tests/node_modules
-/tests/test_dna/target
-/tests/test_dna/tests/out.log
-/tests/test_zome/target
 *.dna
+*.happ
 .cargo
+node_modules
+.vscode
+.hc*

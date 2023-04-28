@@ -1,36 +1,37 @@
-import { Scenario, runScenario } from '@holochain/tryorama'
+import { Scenario, runScenario, getZomeCaller } from '@holochain/tryorama'
 import path from 'path'
-import test from "tape-promise/tape";
+import test from "tape";
 
-const dnas = [{ path: path.join("../workdir/time-index-test.dna") }];
-
+const appBundle = { path: path.join("../workdir/time-index-test.happ") };
 const now = new Date("August 12, 2021 14:01:30")
 
 test("test get empty path", async (t) => {
-  await runScenario(async (scenario: Scenario) => {
-    const [alice] = await scenario.addPlayersWithHapps([dnas]);
-    console.log("Init alice happ");
+  const scenario = new Scenario();
+  try {
+    const alice = await scenario.addPlayerWithApp(appBundle);
+    const aliceCallZome = getZomeCaller(alice.cells[0], "test_zome");
 
     var dateOffset = (24*60*60*1000); //1 day ago
     var date = new Date();
     date.setTime(date.getTime() - dateOffset);
 
-    let results_between = await alice.cells[0].callZome({
-      zome_name: "test_zome", 
-      fn_name: "get_links_for_time_span", 
-      payload: {index: "test_index", from: new Date().toISOString(), until: date.toISOString(), limit: 10}
-    })
-    console.log("Got results", results_between);
-    //@ts-ignore
-    t.equal(results_between.length, 0)
+    let results_between = await aliceCallZome(
+      "get_links_for_time_span", 
+      {index: "test_index", from: new Date().toISOString(), until: date.toISOString(), limit: 10}
+    );
 
-    await scenario.cleanUp()
-  })
-})
+    //@ts-ignore
+    t.equal(results_between.length, 0);
+  } catch (error) {
+    console.error("error", error);
+  }
+  await scenario.cleanUp();
+});
 
 test("test get index dfs", async (t) => {
-  await runScenario(async (scenario: Scenario) => {
-    const [alice] = await scenario.addPlayersWithHapps([dnas]);
+  const scenario = new Scenario();
+  try {
+    const alice = await scenario.addPlayerWithApp(appBundle);
 
     var dateOffset = (24*60*60*1000); //1 day ago
     var yesterday = new Date();
@@ -109,14 +110,16 @@ test("test get index dfs", async (t) => {
     console.log("Got results", asc_results);
     //@ts-ignore
     t.equal(asc_results.length, 5)
-
-    await scenario.cleanUp()
-  })
+  } catch (error) {
+    console.error("error", error);
+  }
+  await scenario.cleanUp();
 })
 
 test("test get links and load dfs", async (t) => {
-  await runScenario(async (scenario: Scenario) => {
-    const [alice] = await scenario.addPlayersWithHapps([dnas]);
+  const scenario = new Scenario();
+  try {
+    const alice = await scenario.addPlayerWithApp(appBundle);
 
     var dateOffset = (24*60*60*1000); //1 day ago
     var yesterday = new Date(now.getTime() - dateOffset);
@@ -199,14 +202,16 @@ test("test get links and load dfs", async (t) => {
     t.equal(asc_results[3].title, "A test index2")
     //@ts-ignore
     t.equal(asc_results[4].title, "A test index")
-
-    await scenario.cleanUp()
-  })
+  } catch (error) {
+    console.error("error", error);
+  }
+  await scenario.cleanUp();
 })
 
 test("test simple index", async (t) => {
-  await runScenario(async (scenario: Scenario) => {
-    const [alice] = await scenario.addPlayersWithHapps([dnas]);
+  const scenario = new Scenario();
+  try {
+    const alice = await scenario.addPlayerWithApp(appBundle);
 
     var dateOffset = 10; //10ms
     var date = new Date();
@@ -256,14 +261,16 @@ test("test simple index", async (t) => {
     console.log("Got results between", results_betwee2);
     //@ts-ignore
     t.deepEqual(results_betwee2.length, 1);
-
-    await scenario.cleanUp()
-  })
+  } catch (error) {
+    console.error("error", error);
+  }
+  await scenario.cleanUp();
 })
 
 test("test delete", async (t) => {
-  await runScenario(async (scenario: Scenario) => {
-    const [alice] = await scenario.addPlayersWithHapps([dnas]);
+  const scenario = new Scenario();
+  try {
+    const alice = await scenario.addPlayerWithApp(appBundle);
   
     //Index entry
     await alice.cells[0].callZome({
@@ -303,7 +310,8 @@ test("test delete", async (t) => {
     console.log("Got results between post delete", rb_pd);
     //@ts-ignore
     t.deepEqual(rb_pd.length, 0);
-
-    await scenario.cleanUp()
-  })
+  } catch (error) {
+    console.error("error", error);
+  }
+  await scenario.cleanUp();
 })

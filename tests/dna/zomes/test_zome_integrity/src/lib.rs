@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use hdi::prelude::*;
-
 use hc_time_index::{IndexableEntry};
 
 #[derive(Clone, Deserialize, Serialize, Debug, SerializedBytes)]

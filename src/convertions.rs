@@ -144,11 +144,11 @@ impl TryInto<NaiveDateTime> for WrappedPath {
     fn try_into(self) -> Result<NaiveDateTime, Self::Error> {
         let data = self.0;
         let path_comps: Vec<Component> = data.into();
-        let nd = NaiveDate::from_ymd(
+        let nd = NaiveDate::from_ymd_opt(
             get_time_index_from_components_strict(&path_comps, 1)?.0 as i32,
             get_time_index_from_components(&path_comps, 2)?.0,
             get_time_index_from_components(&path_comps, 3)?.0,
-        );
+        ).unwrap();
         //Get the path time components that are optionally present
         let hour = if INDEX_DEPTH.contains(&IndexType::Hour) {
             Some(get_time_index_from_components(&path_comps, 4)?.0)
@@ -165,11 +165,11 @@ impl TryInto<NaiveDateTime> for WrappedPath {
         } else {
             None
         };
-        let ndt = nd.and_hms(
+        let ndt = nd.and_hms_opt(
             hour.unwrap_or(1) as u32,
             min.unwrap_or(1) as u32,
             second.unwrap_or(1) as u32,
-        );
+        ).unwrap();
         Ok(ndt)
     }
 }

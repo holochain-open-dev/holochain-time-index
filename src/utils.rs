@@ -113,7 +113,7 @@ pub(crate) fn get_time_path(
     from: std::time::Duration,
 ) -> IndexResult<Vec<Component>> {
     let from_timestamp = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(from.as_secs_f64() as i64, from.subsec_nanos()),
+        NaiveDateTime::from_timestamp_opt(from.as_secs_f64() as i64, from.subsec_nanos()).unwrap(),
         Utc,
     );
     let mut time_path = vec![Component::from(
